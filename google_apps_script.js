@@ -1,21 +1,4 @@
-﻿# ðŸ“„ Google Apps Script: Backend Multi-InventÃ¡rio (Aparelhos & Materiais)
-
-Este cÃ³digo deve ser colado no **Editor de Apps Script** da sua planilha do Google Sheets (**ExtensÃµes $\rightarrow$ Apps Script**).
-
----
-
-## ðŸ›ï¸ Abas Suportadas na Planilha:
-1. **estoque fisico** (ou estoque fisico aparelhos): Contagens de mÃ¡quinas e aparelhos.
-2. **estoque fisico materiais**: Contagens de peÃ§as, tubos, gÃ¡s e materiais.
-3. **Estoque sistema aparelhos**: Base cadastral do ERP/SAP para aparelhos.
-4. **estoque sistema materiais**: Base cadastral do ERP/SAP para materiais (importada de 'SC PALHOÃ‡A.xlsx').
-
----
-
-## ðŸ’» CÃ³digo do Google Apps Script (CÃ³digo.gs):
-
-``javascript
-/**
+﻿/**
  * ===================================================================
  * GOOGLE APPS SCRIPT - INTEGRAÃ‡ÃƒO LEITOR DE INVENTÃRIO (WEBHOOK)
  * ===================================================================
@@ -255,6 +238,55 @@ function doGet(e) {
       }
     }
     
+    // -------------------------------------------------------------
+    // D. LER ABA 'estoque fisico materiais'
+    // -------------------------------------------------------------
+    var sheetFisicoMat = getSheetCaseInsensitive(ss, "estoque fisico materiais");
+    var itensFisicosMat = [];
+
+    if (sheetFisicoMat) {
+      var rowsFMat = sheetFisicoMat.getDataRange().getValues();
+      if (rowsFMat.length > 1) {
+        var headerFM = rowsFMat[0].map(function(h) { 
+          return String(h).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[Âº]/g, "o").replace(/[Âª]/g, "a").trim(); 
+        });
+
+        var colFMCod = headerFM.indexOf("codigo") !== -1 ? headerFM.indexOf("codigo") : 0;
+        var colFMDes = headerFM.indexOf("descricao") !== -1 ? headerFM.indexOf("descricao") : 1;
+        var colFMUni = headerFM.indexOf("unidade") !== -1 ? headerFM.indexOf("unidade") : 2;
+        var colFMLoc = headerFM.indexOf("localizacao") !== -1 ? headerFM.indexOf("localizacao") : 3;
+        var colFMQtd = headerFM.indexOf("quantidade") !== -1 ? headerFM.indexOf("quantidade") : 4;
+        var colFMObs = headerFM.indexOf("observacao") !== -1 ? headerFM.indexOf("observacao") : 5;
+        var colFMDat = headerFM.indexOf("data/hora") !== -1 ? headerFM.indexOf("data/hora") : 6;
+
+        for (var k = 1; k < rowsFMat.length; k++) {
+          var rowFM = rowsFMat[k];
+          var codM = colFMCod !== -1 ? String(rowFM[colFMCod] || '').trim() : '';
+          var desM = colFMDes !== -1 ? String(rowFM[colFMDes] || '').trim() : '';
+          var uniM = colFMUni !== -1 ? String(rowFM[colFMUni] || '').trim() : 'UN';
+          var locM = colFMLoc !== -1 ? String(rowFM[colFMLoc] || '').trim() : '';
+          var qtdM = colFMQtd !== -1 ? (Number(rowFM[colFMQtd]) || 1) : 1;
+          var obsM = colFMObs !== -1 ? String(rowFM[colFMObs] || '').trim() : '';
+          var datM = colFMDat !== -1 ? String(rowFM[colFMDat] || '').trim() : '';
+
+          if (codM || desM) {
+            itensFisicosMat.push({
+              id: 'sheet_mat_' + k,
+              codigo: codM,
+              descricao: desM,
+              unidade: uniM,
+              localizacao: locM,
+              quantity: qtdM,
+              obs: obsM,
+              timestamp: datM,
+              synced: true,
+              mode: 'materiais'
+            });
+          }
+        }
+      }
+    }
+    
     return ContentService
       .createTextOutput(JSON.stringify({
         "status": "sucesso",
@@ -263,7 +295,9 @@ function doGet(e) {
         "totalSistema": itensSistema.length,
         "sistema": itensSistema,
         "totalMateriais": itensMateriais.length,
-        "materiais": itensMateriais
+        "materiais": itensMateriais,
+        "totalFisicoMateriais": itensFisicosMat.length,
+        "fisicoMateriais": itensFisicosMat
       }))
       .setMimeType(ContentService.MimeType.JSON);
       
@@ -276,5 +310,3 @@ function doGet(e) {
       .setMimeType(ContentService.MimeType.JSON);
   }
 }
-
-``

@@ -20,7 +20,7 @@ export const InventoryProvider = ({ children }) => {
   // Estado de Modo: 'aparelhos' | 'materiais'
   const [mode, setMode] = useState(() => storageService.load(keys.ACTIVE_MODE, 'aparelhos'));
   
-  // Itens contados por modo
+  // Itens contados por modo (Inicializados do storage local)
   const [itemsAparelhos, setItemsAparelhos] = useState(() => storageService.load(keys.ITEMS_APARELHOS, []));
   const [itemsMateriais, setItemsMateriais] = useState(() => storageService.load(keys.ITEMS_MATERIAIS, []));
   
@@ -115,12 +115,13 @@ export const InventoryProvider = ({ children }) => {
     };
   }, []);
 
-  // Buscar dados da planilha na inicialização
+  // Buscar dados da planilha na inicialização (SINCRONIZAÇÃO NUVEM ➔ CELULAR)
   const fetchLiveSheetData = useCallback(async () => {
     if (!config.webhookUrl) return;
     const result = await googleSheetService.fetchSheetData(config.webhookUrl);
     if (!result || result.status !== 'sucesso') return;
 
+    // 1. Processar histórico de contados aparelhos
     if (Array.isArray(result.data)) {
       setScannedHistory(prev => {
         const next = { ...prev };
@@ -132,6 +133,29 @@ export const InventoryProvider = ({ children }) => {
       });
     }
 
+    // 2. Processar materiais já contados na planilha física (Puxa os 67 itens para a tela do celular)
+    if (Array.isArray(result.fisicoMateriais) && result.fisicoMateriais.length > 0) {
+      setItemsMateriais(prev => {
+        // Se a lista local estiver vazia ou menor, carrega direto da planilha
+        if (prev.length === 0) return result.fisicoMateriais;
+        
+        // Mesclar itens garantindo que nada salvo localmente se perca
+        const mapByCodOrDesc = {};
+        result.fisicoMateriais.forEach(item => {
+          const key = (item.codigo || item.descricao || '').trim().toLowerCase();
+          if (key) mapByCodOrDesc[key] = item;
+        });
+        prev.forEach(item => {
+          const key = (item.codigo || item.descricao || '').trim().toLowerCase();
+          if (key && !mapByCodOrDesc[key]) {
+            mapByCodOrDesc[key] = item;
+          }
+        });
+        return Object.values(mapByCodOrDesc);
+      });
+    }
+
+    // 3. Processar base cadastral ERP - Aparelhos
     if (Array.isArray(result.sistema)) {
       const nextSys = { byPatrimonio: {}, bySerie: {} };
       result.sistema.forEach(sys => {
@@ -141,6 +165,7 @@ export const InventoryProvider = ({ children }) => {
       setSystemStock(nextSys);
     }
 
+    // 4. Processar novidades do ERP - Materiais
     if (Array.isArray(result.materiais) && result.materiais.length > 0) {
       setMateriaisCatalog(result.materiais);
       setLookupDB(prev => {
@@ -231,7 +256,6 @@ export const InventoryProvider = ({ children }) => {
   const saveItem = async (itemData, mergeWithExisting = false) => {
     const isEdit = !!editingItem;
 
-    // Se o usuário escolheu somar com o registro existente de material
     if (mode === 'materiais' && mergeWithExisting && !isEdit) {
       const stats = getItemCountedStats(itemData.codigo, itemData.descricao);
       if (stats.isCounted && stats.firstItem) {
