@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { storageService } from '../services/storageService';
 import { googleSheetService } from '../services/googleSheetService';
 import { useAudio } from '../hooks/useAudio';
+import initialMateriaisCatalog from '../data/materiaisCatalog.json';
 
 const InventoryContext = createContext(null);
 
@@ -26,7 +27,15 @@ export const InventoryProvider = ({ children }) => {
   // Catálogo EAN / Descrição (Auto-Aprendizado)
   const [lookupDB, setLookupDB] = useState(() => {
     const saved = storageService.load(keys.EAN_LOOKUP, {});
-    return { ...INITIAL_CATALOG, ...saved };
+    // Auto-popular com EANs do catálogo de materiais inicial
+    const eanMap = {};
+    if (Array.isArray(initialMateriaisCatalog)) {
+      initialMateriaisCatalog.forEach(mat => {
+        if (mat.ean) eanMap[mat.ean.trim()] = mat.nome;
+        if (mat.codigo) eanMap[mat.codigo.trim()] = mat.nome;
+      });
+    }
+    return { ...INITIAL_CATALOG, ...eanMap, ...saved };
   });
 
   // Base do Sistema ERP - Aparelhos
@@ -34,10 +43,12 @@ export const InventoryProvider = ({ children }) => {
     storageService.load(keys.SYSTEM_STOCK, { byPatrimonio: {}, bySerie: {} })
   );
 
-  // Base do Sistema ERP - Catálogo de Materiais (SC PALHOÇA / ERP)
-  const [materiaisCatalog, setMateriaisCatalog] = useState(() => 
-    storageService.load('inventario_2_materiais_catalog', [])
-  );
+  // Base do Sistema ERP - Catálogo de Materiais (Embarcado 11.900+ itens + Cache)
+  const [materiaisCatalog, setMateriaisCatalog] = useState(() => {
+    const saved = storageService.load('inventario_2_materiais_catalog', null);
+    if (Array.isArray(saved) && saved.length > 0) return saved;
+    return Array.isArray(initialMateriaisCatalog) ? initialMateriaisCatalog : [];
+  });
 
   // Histórico de bipados (para evitar duplicatas)
   const [scannedHistory, setScannedHistory] = useState(() => 
