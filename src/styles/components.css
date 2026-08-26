@@ -1,4 +1,4 @@
-/* Scanner Styles */
+﻿/* Scanner Styles */
 .scanner-container {
   width: 100%;
   display: flex;
@@ -89,7 +89,7 @@
   cursor: not-allowed;
 }
 
-/* Banner de Feedback Rápido */
+/* Banner de Feedback RÃ¡pido */
 .feedback-banner {
   width: 100%;
   max-width: 380px;
@@ -121,7 +121,7 @@
   opacity: 0.75;
 }
 
-/* Formulário de Produto */
+/* FormulÃ¡rio de Produto */
 .item-card {
   width: 100%;
   background: var(--surface-color);
@@ -220,7 +220,7 @@
   gap: 2px;
 }
 
-/* Botões de Quantidade Rápida (Materiais) */
+/* BotÃµes de Quantidade RÃ¡pida (Materiais) */
 .quick-qty-pills {
   display: flex;
   gap: 0.35rem;
@@ -248,7 +248,7 @@
   transform: scale(0.95);
 }
 
-/* Botão Salvar Principal */
+/* BotÃ£o Salvar Principal */
 .btn-save-main {
   width: 100%;
   padding: 0.75rem 1rem;
@@ -436,3 +436,28 @@
 .sync-icon.synced { color: var(--success-color); }
 .sync-icon.pending { color: var(--warning-color); }
 .sync-icon.syncing { color: #0284c7; animation: pulse 1s infinite; }
+
+/* Barra de Acoes Inferior 100% Fixa e Firme */
+.bottom-action-toolbar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  max-width: 620px;
+  margin: 0 auto;
+  z-index: 1000;
+  display: flex;
+  gap: 0.45rem;
+  justify-content: center;
+  align-items: center;
+  padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom, 0px)) 1rem;
+  background: rgba(255, 255, 255, 0.97);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-top: 1px solid var(--border-color);
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.08);
+}
+
+.list-section {
+  padding-bottom: 5.5rem !important;
+}

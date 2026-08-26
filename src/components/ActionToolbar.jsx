@@ -1,4 +1,4 @@
-import React from 'react';
+﻿import React from 'react';
 import { useInventory } from '../context/InventoryContext';
 
 export const ActionToolbar = () => {
@@ -6,7 +6,7 @@ export const ActionToolbar = () => {
 
   const exportCSV = () => {
     if (items.length === 0) {
-      alert('A lista está vazia para exportar.');
+      alert('A lista estÃ¡ vazia para exportar.');
       return;
     }
 
@@ -35,21 +35,21 @@ export const ActionToolbar = () => {
 
   const copyToClipboard = () => {
     if (items.length === 0) {
-      alert('A lista está vazia para copiar.');
+      alert('A lista estÃ¡ vazia para copiar.');
       return;
     }
 
-    let text = `INVENTÁRIO ${mode.toUpperCase()}\n------------------------\n`;
+    let text = `INVENTÃRIO ${mode.toUpperCase()}\n------------------------\n`;
     items.forEach((it, idx) => {
       text += `${idx + 1}. Qtd: ${it.quantity || 1}\n`;
       if (mode === 'aparelhos') {
-        if (it.patrimonio) text += `   Patrimônio: ${it.patrimonio}\n`;
+        if (it.patrimonio) text += `   PatrimÃ´nio: ${it.patrimonio}\n`;
         if (it.modelo) text += `   Modelo: ${it.modelo}\n`;
-        if (it.serie) text += `   Série: ${it.serie}\n`;
+        if (it.serie) text += `   SÃ©rie: ${it.serie}\n`;
         if (it.ean) text += `   EAN: ${it.ean}\n`;
       } else {
-        if (it.codigo) text += `   Código: ${it.codigo}\n`;
-        if (it.descricao) text += `   Descrição: ${it.descricao}\n`;
+        if (it.codigo) text += `   CÃ³digo: ${it.codigo}\n`;
+        if (it.descricao) text += `   DescriÃ§Ã£o: ${it.descricao}\n`;
         if (it.unidade) text += `   Un: ${it.unidade}\n`;
         if (it.localizacao) text += `   Local: ${it.localizacao}\n`;
       }
@@ -58,34 +58,24 @@ export const ActionToolbar = () => {
     });
 
     navigator.clipboard.writeText(text).then(() => {
-      showFeedbackMessage('Copiado para a área de transferência!');
+      showFeedbackMessage('Copiado para a Ã¡rea de transferÃªncia!');
     }).catch(() => {
-      alert('Não foi possível copiar automaticamente.');
+      alert('NÃ£o foi possÃ­vel copiar automaticamente.');
     });
   };
 
   return (
-    <div style={{
-      display: 'flex',
-      gap: '0.4rem',
-      justifyContent: 'center',
-      padding: '0.85rem 1rem',
-      backgroundColor: 'var(--surface-color)',
-      borderTop: '1px solid var(--border-color)',
-      position: 'sticky',
-      bottom: 0,
-      zIndex: 90
-    }}>
+    <div className="bottom-action-toolbar">
       <button 
         className="btn-tool primary" 
         onClick={exportCSV} 
-        style={{ flex: 1, backgroundColor: 'var(--primary-color)', color: 'white' }}
+        style={{ flex: 1.2, backgroundColor: 'var(--primary-color)', color: 'white' }}
       >
         <i className="fa-solid fa-file-csv"></i> Exportar CSV
       </button>
 
       <button className="btn-tool" onClick={copyToClipboard} style={{ flex: 1 }}>
-        <i className="fa-solid fa-copy"></i> Copiar Texto
+        <i className="fa-solid fa-copy"></i> Copiar
       </button>
 
       <button className="btn-tool" onClick={syncPending} style={{ flex: 1 }} title="Sincronizar Pendentes">
@@ -93,10 +83,10 @@ export const ActionToolbar = () => {
       </button>
 
       <button 
-        className="btn-tool" 
+        className="btn-tool danger" 
         onClick={clearCurrentList} 
-        style={{ color: 'var(--danger-color)' }}
         title="Limpar Lista"
+        style={{ width: '2.5rem', flex: '0 0 auto' }}
       >
         <i className="fa-solid fa-trash-can"></i>
       </button>
