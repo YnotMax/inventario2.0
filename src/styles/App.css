@@ -1,4 +1,4 @@
-.app-container {
+﻿.app-container {
   width: 100%;
   max-width: 620px;
   margin: 0 auto;
@@ -15,8 +15,7 @@
   background: linear-gradient(135deg, var(--primary-dark), var(--primary-color));
   color: white;
   padding: 0.85rem 1rem 0.6rem 1rem;
-  position: sticky;
-  top: 0;
+  position: static;
   z-index: 100;
   display: flex;
   flex-direction: column;
@@ -99,7 +98,7 @@
   box-shadow: var(--shadow-sm);
 }
 
-/* Barra de Status de Conexão */
+/* Barra de Status de ConexÃ£o */
 .status-pill {
   display: inline-flex;
   align-items: center;
@@ -132,7 +131,7 @@
   color: #fef2f2;
 }
 
-/* Área Principal */
+/* Ãrea Principal */
 .main-content {
   padding: 1.25rem 1rem;
   display: flex;
