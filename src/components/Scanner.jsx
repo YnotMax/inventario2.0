@@ -30,8 +30,12 @@ export const Scanner = ({ onCodeDetected }) => {
     }).catch(e => console.warn('Câmeras:', e));
 
     return () => {
-      if (html5QrRef.current && isScanning) {
-        html5QrRef.current.stop().catch(() => {});
+      if (html5QrRef.current) {
+        try {
+          if (html5QrRef.current.isScanning) {
+            html5QrRef.current.stop().catch(() => {});
+          }
+        } catch (e) {}
       }
     };
   }, []);
@@ -56,9 +60,9 @@ export const Scanner = ({ onCodeDetected }) => {
       const ser = parsed.serie;
       let dupMsg = null;
 
-      if (pat && scannedHistory.patrimonios[pat.toUpperCase().trim()]) {
+      if (pat && scannedHistory.patrimonios && scannedHistory.patrimonios[pat.toUpperCase().trim()]) {
         dupMsg = `Patrimônio ${pat} já foi bipado anteriormente!`;
-      } else if (ser && scannedHistory.series[ser.toUpperCase().trim()]) {
+      } else if (ser && scannedHistory.series && scannedHistory.series[ser.toUpperCase().trim()]) {
         dupMsg = `Nº de Série ${ser} já foi bipado anteriormente!`;
       }
 
@@ -128,9 +132,11 @@ export const Scanner = ({ onCodeDetected }) => {
   };
 
   const stopScanner = async () => {
-    if (html5QrRef.current && isScanning) {
+    if (html5QrRef.current) {
       try {
-        await html5QrRef.current.stop();
+        if (html5QrRef.current.isScanning) {
+          await html5QrRef.current.stop();
+        }
         setIsScanning(false);
         setIsTorchOn(false);
       } catch (e) {
@@ -161,7 +167,7 @@ export const Scanner = ({ onCodeDetected }) => {
     await stopScanner();
     const nextIdx = (activeCamIndex + 1) % cameras.length;
     setActiveCamIndex(nextIdx);
-    setTimeout(startScanner, 200);
+    setTimeout(startScanner, 250);
   };
 
   return (
