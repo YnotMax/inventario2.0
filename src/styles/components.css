@@ -438,26 +438,24 @@
 .sync-icon.syncing { color: #0284c7; animation: pulse 1s infinite; }
 
 /* Barra de Acoes Inferior 100% Fixa e Firme */
+/* Barra de Acoes (No fluxo da pagina, rola junto com os materiais contados) */
 .bottom-action-toolbar {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  max-width: 620px;
-  margin: 0 auto;
-  z-index: 1000;
+  position: static;
+  margin: 1.25rem 0 2rem 0;
+  width: 100%;
   display: flex;
-  gap: 0.45rem;
+  gap: 0.5rem;
   justify-content: center;
   align-items: center;
-  padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom, 0px)) 1rem;
-  background: rgba(255, 255, 255, 0.97);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-top: 1px solid var(--border-color);
-  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.08);
+  flex-wrap: wrap;
+  padding: 0.85rem 1rem;
+  background: var(--surface-color);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
 }
 
 .list-section {
-  padding-bottom: 5.5rem !important;
+  padding-bottom: 1rem;
 }
+
