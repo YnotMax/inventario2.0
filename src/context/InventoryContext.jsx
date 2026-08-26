@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+﻿import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { storageService } from '../services/storageService';
 import { googleSheetService } from '../services/googleSheetService';
 import { useAudio } from '../hooks/useAudio';
@@ -24,10 +24,10 @@ export const InventoryProvider = ({ children }) => {
   const [itemsAparelhos, setItemsAparelhos] = useState(() => storageService.load(keys.ITEMS_APARELHOS, []));
   const [itemsMateriais, setItemsMateriais] = useState(() => storageService.load(keys.ITEMS_MATERIAIS, []));
   
-  // Catálogo EAN / Descrição (Auto-Aprendizado)
+  // CatÃ¡logo EAN / DescriÃ§Ã£o (Auto-Aprendizado)
   const [lookupDB, setLookupDB] = useState(() => {
     const saved = storageService.load(keys.EAN_LOOKUP, {});
-    // Auto-popular com EANs do catálogo de materiais inicial
+    // Auto-popular com EANs do catÃ¡logo de materiais inicial
     const eanMap = {};
     if (Array.isArray(initialMateriaisCatalog)) {
       initialMateriaisCatalog.forEach(mat => {
@@ -43,19 +43,17 @@ export const InventoryProvider = ({ children }) => {
     storageService.load(keys.SYSTEM_STOCK, { byPatrimonio: {}, bySerie: {} })
   );
 
-  // Base do Sistema ERP - Catálogo de Materiais (Embarcado 11.900+ itens + Cache)
+  // Base do Sistema ERP - CatÃ¡logo de Materiais (Embarcado 11.900+ itens + Cache)
   const [materiaisCatalog, setMateriaisCatalog] = useState(() => {
-    const saved = storageService.load('inventario_2_materiais_catalog', null);
-    if (Array.isArray(saved) && saved.length > 0) return saved;
     return Array.isArray(initialMateriaisCatalog) ? initialMateriaisCatalog : [];
   });
 
-  // Histórico de bipados (para evitar duplicatas)
+  // HistÃ³rico de bipados (para evitar duplicatas)
   const [scannedHistory, setScannedHistory] = useState(() => 
     storageService.load(keys.HISTORY, { patrimonios: {}, series: {}, materiais: {} })
   );
 
-  // Configurações
+  // ConfiguraÃ§Ãµes
   const [config, setConfig] = useState(storageService.loadConfig);
   
   // Feedback e Alertas Ativos
@@ -65,7 +63,7 @@ export const InventoryProvider = ({ children }) => {
   const [editingItem, setEditingItem] = useState(null);
   const [screenFlash, setScreenFlash] = useState({ active: false, warning: false });
 
-  // Hook de áudio
+  // Hook de Ã¡udio
   const { playBeep, playWarning } = useAudio(config.soundEnabled);
 
   // Itens do modo atual
@@ -104,7 +102,7 @@ export const InventoryProvider = ({ children }) => {
     storageService.saveConfig(config);
   }, [config]);
 
-  // Monitorar conexão de internet
+  // Monitorar conexÃ£o de internet
   useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true);
@@ -122,13 +120,13 @@ export const InventoryProvider = ({ children }) => {
     };
   }, []);
 
-  // Buscar dados da planilha na inicialização
+  // Buscar dados da planilha na inicializaÃ§Ã£o
   const fetchLiveSheetData = useCallback(async () => {
     if (!config.webhookUrl) return;
     const result = await googleSheetService.fetchSheetData(config.webhookUrl);
     if (!result || result.status !== 'sucesso') return;
 
-    // 1. Processar histórico de contados
+    // 1. Processar histÃ³rico de contados
     if (Array.isArray(result.data)) {
       setScannedHistory(prev => {
         const next = { ...prev };
@@ -150,7 +148,7 @@ export const InventoryProvider = ({ children }) => {
       setSystemStock(nextSys);
     }
 
-    // 3. Processar base cadastral ERP - Materiais (SC PALHOÇA)
+    // 3. Processar base cadastral ERP - Materiais (SC PALHOÃ‡A)
     if (Array.isArray(result.materiais) && result.materiais.length > 0) {
       setMateriaisCatalog(result.materiais);
       // Auto-popular lookupDB com EANs de materiais
@@ -177,7 +175,7 @@ export const InventoryProvider = ({ children }) => {
     }, 350);
   };
 
-  // Mostrar Feedback temporário
+  // Mostrar Feedback temporÃ¡rio
   const showFeedbackMessage = (text, type = 'success') => {
     setFeedback({ show: true, text, type });
     if (type === 'success') {
@@ -190,7 +188,7 @@ export const InventoryProvider = ({ children }) => {
     setTimeout(() => setFeedback(prev => ({ ...prev, show: false })), 2500);
   };
 
-  // Aprender modelo/descrição por EAN ou Código
+  // Aprender modelo/descriÃ§Ã£o por EAN ou CÃ³digo
   const learnEan = (code, desc) => {
     if (!code || !desc) return;
     setLookupDB(prev => ({ ...prev, [code.trim()]: desc.trim() }));
@@ -200,7 +198,7 @@ export const InventoryProvider = ({ children }) => {
   const linkEanToMaterial = (ean, materialName) => {
     if (!ean || !materialName) return;
     learnEan(ean, materialName);
-    showFeedbackMessage(`🔗 Código ${ean} vinculado a "${materialName}"!`);
+    showFeedbackMessage(`ðŸ”— CÃ³digo ${ean} vinculado a "${materialName}"!`);
   };
 
   // Adicionar ou Atualizar Item
@@ -214,7 +212,7 @@ export const InventoryProvider = ({ children }) => {
       ...itemData
     };
 
-    // Atualizar no histórico
+    // Atualizar no histÃ³rico
     if (newItem.patrimonio) {
       setScannedHistory(prev => ({
         ...prev,
@@ -244,7 +242,7 @@ export const InventoryProvider = ({ children }) => {
 
     setEditingItem(null);
     setDuplicateAlert(null);
-    showFeedbackMessage(isEdit ? 'Item atualizado!' : 'Item adicionado à lista!');
+    showFeedbackMessage(isEdit ? 'Item atualizado!' : 'Item adicionado Ã  lista!');
 
     // Tentar sincronizar em nuvem
     if (config.webhookUrl && navigator.onLine) {
@@ -308,7 +306,7 @@ export const InventoryProvider = ({ children }) => {
 
   // Limpar lista atual
   const clearCurrentList = () => {
-    if (window.confirm(`Tem certeza que deseja apagar os dados do inventário de ${mode === 'aparelhos' ? 'Aparelhos' : 'Materiais'}?`)) {
+    if (window.confirm(`Tem certeza que deseja apagar os dados do inventÃ¡rio de ${mode === 'aparelhos' ? 'Aparelhos' : 'Materiais'}?`)) {
       if (mode === 'aparelhos') setItemsAparelhos([]);
       else setItemsMateriais([]);
       setEditingItem(null);
