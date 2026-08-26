@@ -24,17 +24,10 @@ export const InventoryProvider = ({ children }) => {
   const [itemsAparelhos, setItemsAparelhos] = useState(() => storageService.load(keys.ITEMS_APARELHOS, []));
   const [itemsMateriais, setItemsMateriais] = useState(() => storageService.load(keys.ITEMS_MATERIAIS, []));
   
-  // Catálogo EAN / Descrição (Auto-Aprendizado)
+  // Catálogo EAN / Descrição (Apenas itens aprendidos customizados salvos no localStorage para não estourar cota)
   const [lookupDB, setLookupDB] = useState(() => {
     const saved = storageService.load(keys.EAN_LOOKUP, {});
-    const eanMap = {};
-    if (Array.isArray(initialMateriaisCatalog)) {
-      initialMateriaisCatalog.forEach(mat => {
-        if (mat.ean) eanMap[mat.ean.trim()] = mat.nome;
-        if (mat.codigo) eanMap[mat.codigo.trim()] = mat.nome;
-      });
-    }
-    return { ...INITIAL_CATALOG, ...eanMap, ...saved };
+    return { ...INITIAL_CATALOG, ...saved };
   });
 
   // Base do Sistema ERP - Aparelhos
@@ -42,7 +35,7 @@ export const InventoryProvider = ({ children }) => {
     storageService.load(keys.SYSTEM_STOCK, { byPatrimonio: {}, bySerie: {} })
   );
 
-  // Base do Sistema ERP - Catálogo de Materiais (11.921 itens limpos e atualizados)
+  // Base do Sistema ERP - Catálogo de Materiais (11.921 itens limpos e atualizados em memória)
   const [materiaisCatalog, setMateriaisCatalog] = useState(() => {
     return Array.isArray(initialMateriaisCatalog) ? initialMateriaisCatalog : [];
   });
@@ -68,7 +61,7 @@ export const InventoryProvider = ({ children }) => {
   // Itens do modo atual
   const currentItems = mode === 'aparelhos' ? itemsAparelhos : itemsMateriais;
 
-  // Salvar no storage local
+  // Salvar no storage local com segurança
   useEffect(() => {
     storageService.save(keys.ACTIVE_MODE, mode);
   }, [mode, keys]);
@@ -118,64 +111,58 @@ export const InventoryProvider = ({ children }) => {
   // Buscar dados da planilha na inicialização (SINCRONIZAÇÃO NUVEM ➔ CELULAR)
   const fetchLiveSheetData = useCallback(async () => {
     if (!config.webhookUrl) return;
-    const result = await googleSheetService.fetchSheetData(config.webhookUrl);
-    if (!result || result.status !== 'sucesso') return;
+    try {
+      const result = await googleSheetService.fetchSheetData(config.webhookUrl);
+      if (!result || result.status !== 'sucesso') return;
 
-    // 1. Processar histórico de contados aparelhos
-    if (Array.isArray(result.data)) {
-      setScannedHistory(prev => {
-        const next = { ...prev };
-        result.data.forEach(it => {
-          if (it.patrimonio) next.patrimonios[it.patrimonio.toUpperCase().trim()] = true;
-          if (it.serie) next.series[it.serie.toUpperCase().trim()] = true;
+      // 1. Processar histórico de contados aparelhos
+      if (Array.isArray(result.data)) {
+        setScannedHistory(prev => {
+          const next = { ...prev };
+          result.data.forEach(it => {
+            if (it.patrimonio) next.patrimonios[it.patrimonio.toUpperCase().trim()] = true;
+            if (it.serie) next.series[it.serie.toUpperCase().trim()] = true;
+          });
+          return next;
         });
-        return next;
-      });
-    }
+      }
 
-    // 2. Processar materiais já contados na planilha física (Puxa os 67 itens para a tela do celular)
-    if (Array.isArray(result.fisicoMateriais) && result.fisicoMateriais.length > 0) {
-      setItemsMateriais(prev => {
-        // Se a lista local estiver vazia ou menor, carrega direto da planilha
-        if (prev.length === 0) return result.fisicoMateriais;
-        
-        // Mesclar itens garantindo que nada salvo localmente se perca
-        const mapByCodOrDesc = {};
-        result.fisicoMateriais.forEach(item => {
-          const key = (item.codigo || item.descricao || '').trim().toLowerCase();
-          if (key) mapByCodOrDesc[key] = item;
+      // 2. Processar materiais já contados na planilha física (Puxa os itens para a tela do celular)
+      if (Array.isArray(result.fisicoMateriais) && result.fisicoMateriais.length > 0) {
+        setItemsMateriais(prev => {
+          if (prev.length === 0) return result.fisicoMateriais;
+          
+          const mapByCodOrDesc = {};
+          result.fisicoMateriais.forEach(item => {
+            const key = (item.codigo || item.descricao || '').trim().toLowerCase();
+            if (key) mapByCodOrDesc[key] = item;
+          });
+          prev.forEach(item => {
+            const key = (item.codigo || item.descricao || '').trim().toLowerCase();
+            if (key && !mapByCodOrDesc[key]) {
+              mapByCodOrDesc[key] = item;
+            }
+          });
+          return Object.values(mapByCodOrDesc);
         });
-        prev.forEach(item => {
-          const key = (item.codigo || item.descricao || '').trim().toLowerCase();
-          if (key && !mapByCodOrDesc[key]) {
-            mapByCodOrDesc[key] = item;
-          }
-        });
-        return Object.values(mapByCodOrDesc);
-      });
-    }
+      }
 
-    // 3. Processar base cadastral ERP - Aparelhos
-    if (Array.isArray(result.sistema)) {
-      const nextSys = { byPatrimonio: {}, bySerie: {} };
-      result.sistema.forEach(sys => {
-        if (sys.etiqueta) nextSys.byPatrimonio[sys.etiqueta.toUpperCase().trim()] = sys;
-        if (sys.serie) nextSys.bySerie[sys.serie.toUpperCase().trim()] = sys;
-      });
-      setSystemStock(nextSys);
-    }
-
-    // 4. Processar novidades do ERP - Materiais
-    if (Array.isArray(result.materiais) && result.materiais.length > 0) {
-      setMateriaisCatalog(result.materiais);
-      setLookupDB(prev => {
-        const next = { ...prev };
-        result.materiais.forEach(mat => {
-          if (mat.ean) next[mat.ean.trim()] = mat.nome;
-          if (mat.codigo) next[mat.codigo.trim()] = mat.nome;
+      // 3. Processar base cadastral ERP - Aparelhos
+      if (Array.isArray(result.sistema)) {
+        const nextSys = { byPatrimonio: {}, bySerie: {} };
+        result.sistema.forEach(sys => {
+          if (sys.etiqueta) nextSys.byPatrimonio[sys.etiqueta.toUpperCase().trim()] = sys;
+          if (sys.serie) nextSys.bySerie[sys.serie.toUpperCase().trim()] = sys;
         });
-        return next;
-      });
+        setSystemStock(nextSys);
+      }
+
+      // 4. Processar novidades do ERP - Materiais
+      if (Array.isArray(result.materiais) && result.materiais.length > 0) {
+        setMateriaisCatalog(result.materiais);
+      }
+    } catch (err) {
+      console.warn('Erro ao carregar dados da planilha:', err);
     }
   }, [config.webhookUrl]);
 
