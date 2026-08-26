@@ -2,7 +2,7 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useInventory } from '../context/InventoryContext';
 
 export const MaterialSearchAutocomplete = ({ onSelectMaterial, initialValue = '' }) => {
-  const { materiaisCatalog } = useInventory();
+  const { materiaisCatalog, getItemCountedStats } = useInventory();
   const [searchTerm, setSearchTerm] = useState(initialValue);
   const [isOpen, setIsOpen] = useState(false);
   const wrapperRef = useRef(null);
@@ -37,9 +37,8 @@ export const MaterialSearchAutocomplete = ({ onSelectMaterial, initialValue = ''
       
       const fullText = `${nomeNorm} ${codNorm} ${eanNorm} ${fornNorm}`;
 
-      // Todas as palavras digitadas devem estar presentes
       return words.every(w => fullText.includes(w));
-    }).slice(0, 15); // Limitar a 15 melhores resultados para performance
+    }).slice(0, 15);
   }, [searchTerm, materiaisCatalog]);
 
   const handleSelect = (mat) => {
@@ -69,7 +68,7 @@ export const MaterialSearchAutocomplete = ({ onSelectMaterial, initialValue = ''
           <input
             id="material-autocomplete-input"
             type="text"
-            placeholder="Digite nome (ex: sensor, tubo), fornecedor ou código..."
+            placeholder="Digite nome (ex: sensor, tubo, luva), fornecedor ou código..."
             value={searchTerm}
             onChange={(e) => {
               setSearchTerm(e.target.value);
@@ -112,58 +111,88 @@ export const MaterialSearchAutocomplete = ({ onSelectMaterial, initialValue = ''
           border: '1px solid var(--primary-light)',
           borderRadius: 'var(--radius-md)',
           boxShadow: 'var(--shadow-lg)',
-          maxHeight: '260px',
+          maxHeight: '280px',
           overflowY: 'auto',
           listStyle: 'none',
           marginTop: '4px',
           padding: '4px'
         }}>
-          {suggestions.map((mat, idx) => (
-            <li
-              key={idx}
-              onClick={() => handleSelect(mat)}
-              style={{
-                padding: '0.65rem 0.8rem',
-                borderBottom: idx < suggestions.length - 1 ? '1px solid var(--border-color)' : 'none',
-                cursor: 'pointer',
-                borderRadius: 'var(--radius-sm)',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '0.2rem',
-                transition: 'background 0.15s ease'
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--secondary-color)'}
-              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem' }}>
-                <strong style={{ fontSize: '0.88rem', color: 'var(--text-color)' }}>
-                  {mat.nome}
-                </strong>
-                <span style={{
-                  backgroundColor: 'var(--primary-color)',
-                  color: 'white',
-                  fontSize: '0.7rem',
-                  fontWeight: 700,
-                  padding: '2px 6px',
-                  borderRadius: 'var(--radius-full)',
-                  whiteSpace: 'nowrap'
-                }}>
-                  {mat.unidade || 'UN'}
-                </span>
-              </div>
+          {suggestions.map((mat, idx) => {
+            const countedStats = getItemCountedStats(mat.codigo, mat.nome);
 
-              <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.75rem', color: 'var(--text-light)', flexWrap: 'wrap' }}>
-                {mat.codigo && <span><strong>Cód:</strong> {mat.codigo}</span>}
-                {mat.fornecedor && <span><strong>Forn:</strong> {mat.fornecedor}</span>}
-                {mat.ean && <span><i className="fa-solid fa-barcode"></i> {mat.ean}</span>}
-                {mat.quantidade !== undefined && mat.quantidade !== null && (
-                  <span style={{ color: '#0369a1', fontWeight: 600 }}>
-                    <strong>Sistema:</strong> {mat.quantidade} {mat.unidade || 'UN'}
+            return (
+              <li
+                key={idx}
+                onClick={() => handleSelect(mat)}
+                style={{
+                  padding: '0.65rem 0.8rem',
+                  borderBottom: idx < suggestions.length - 1 ? '1px solid var(--border-color)' : 'none',
+                  cursor: 'pointer',
+                  borderRadius: 'var(--radius-sm)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.25rem',
+                  backgroundColor: countedStats.isCounted ? '#f0fdf4' : 'transparent',
+                  borderLeft: countedStats.isCounted ? '3px solid #16a34a' : 'none',
+                  transition: 'background 0.15s ease'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = countedStats.isCounted ? '#dcfce7' : 'var(--secondary-color)'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = countedStats.isCounted ? '#f0fdf4' : 'transparent'}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem' }}>
+                  <strong style={{ fontSize: '0.88rem', color: 'var(--text-color)' }}>
+                    {mat.nome}
+                  </strong>
+                  <span style={{
+                    backgroundColor: 'var(--primary-color)',
+                    color: 'white',
+                    fontSize: '0.7rem',
+                    fontWeight: 700,
+                    padding: '2px 6px',
+                    borderRadius: 'var(--radius-full)',
+                    whiteSpace: 'nowrap'
+                  }}>
+                    {mat.unidade || 'UN'}
                   </span>
+                </div>
+
+                {/* Selo de Já Contado em Destaque */}
+                {countedStats.isCounted && (
+                  <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                    <span style={{
+                      backgroundColor: '#16a34a',
+                      color: 'white',
+                      fontSize: '0.72rem',
+                      fontWeight: 700,
+                      padding: '2px 7px',
+                      borderRadius: 'var(--radius-full)',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.25rem'
+                    }}>
+                      <i className="fa-solid fa-circle-check"></i> Já Contado: {countedStats.totalCounted} {mat.unidade || 'UN'}
+                    </span>
+                    {countedStats.countRecords > 1 && (
+                      <span style={{ fontSize: '0.7rem', color: '#15803d', fontWeight: 600 }}>
+                        ({countedStats.countRecords} registros)
+                      </span>
+                    )}
+                  </div>
                 )}
-              </div>
-            </li>
-          ))}
+
+                <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.75rem', color: 'var(--text-light)', flexWrap: 'wrap' }}>
+                  {mat.codigo && <span><strong>Cód:</strong> {mat.codigo}</span>}
+                  {mat.fornecedor && <span><strong>Forn:</strong> {mat.fornecedor}</span>}
+                  {mat.ean && <span><i className="fa-solid fa-barcode"></i> {mat.ean}</span>}
+                  {mat.quantidade !== undefined && mat.quantidade !== null && (
+                    <span style={{ color: '#0369a1', fontWeight: 600 }}>
+                      <strong>ERP:</strong> {mat.quantidade} {mat.unidade || 'UN'}
+                    </span>
+                  )}
+                </div>
+              </li>
+            );
+          })}
         </ul>
       )}
 

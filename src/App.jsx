@@ -25,17 +25,17 @@ const MainApp = () => {
   return (
     <div className="app-container">
       {/* Flash visual nas bordas */}
-      <div className={`screen-flash ${screenFlash.active ? 'active' : ''} ${screenFlash.warning ? 'warning' : ''}`} />
+      <div className={`screen-flash ${screenFlash.active ? 'active' : ''} ${screenFlash.type === 'warning' ? 'warning' : ''} ${screenFlash.type === 'info' ? 'info' : ''}`} />
 
-      {/* Header com Seletor e Status */}
+      {/* Header com Seletor e Status (Rola com a tela para liberar espaço) */}
       <Header onOpenSettings={() => setIsSettingsOpen(true)} />
 
       <main className="main-content">
         {/* Banner de Feedback Rápido */}
         {feedback.show && (
-          <div className={`feedback-banner ${feedback.type === 'warning' ? 'warning' : ''}`}>
+          <div className={`feedback-banner ${feedback.type === 'warning' ? 'warning' : ''} ${feedback.type === 'info' ? 'info' : ''}`}>
             <span>
-              <i className={`fa-solid ${feedback.type === 'warning' ? 'fa-triangle-exclamation' : 'fa-check-circle'}`}></i> {feedback.text}
+              <i className={`fa-solid ${feedback.type === 'warning' ? 'fa-triangle-exclamation' : (feedback.type === 'info' ? 'fa-circle-info' : 'fa-check-circle')}`}></i> {feedback.text}
             </span>
           </div>
         )}
@@ -63,7 +63,7 @@ const MainApp = () => {
       {/* Lista de Itens Contados em Tempo Real */}
       <ItemsList onEditItem={handleEditItem} />
 
-      {/* Barra de Ações Inferior (Exportar, Copiar, Sincronizar) */}
+      {/* Barra de Ações (No fluxo da página, rola junto com a lista) */}
       <ActionToolbar />
 
       {/* Modal de Configurações */}

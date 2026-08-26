@@ -1,4 +1,4 @@
-﻿import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { storageService } from '../services/storageService';
 import { googleSheetService } from '../services/googleSheetService';
 import { useAudio } from '../hooks/useAudio';
@@ -24,10 +24,9 @@ export const InventoryProvider = ({ children }) => {
   const [itemsAparelhos, setItemsAparelhos] = useState(() => storageService.load(keys.ITEMS_APARELHOS, []));
   const [itemsMateriais, setItemsMateriais] = useState(() => storageService.load(keys.ITEMS_MATERIAIS, []));
   
-  // CatÃ¡logo EAN / DescriÃ§Ã£o (Auto-Aprendizado)
+  // Catálogo EAN / Descrição (Auto-Aprendizado)
   const [lookupDB, setLookupDB] = useState(() => {
     const saved = storageService.load(keys.EAN_LOOKUP, {});
-    // Auto-popular com EANs do catÃ¡logo de materiais inicial
     const eanMap = {};
     if (Array.isArray(initialMateriaisCatalog)) {
       initialMateriaisCatalog.forEach(mat => {
@@ -43,17 +42,17 @@ export const InventoryProvider = ({ children }) => {
     storageService.load(keys.SYSTEM_STOCK, { byPatrimonio: {}, bySerie: {} })
   );
 
-  // Base do Sistema ERP - CatÃ¡logo de Materiais (Embarcado 11.900+ itens + Cache)
+  // Base do Sistema ERP - Catálogo de Materiais (11.921 itens limpos e atualizados)
   const [materiaisCatalog, setMateriaisCatalog] = useState(() => {
     return Array.isArray(initialMateriaisCatalog) ? initialMateriaisCatalog : [];
   });
 
-  // HistÃ³rico de bipados (para evitar duplicatas)
+  // Histórico de bipados (para evitar duplicatas)
   const [scannedHistory, setScannedHistory] = useState(() => 
     storageService.load(keys.HISTORY, { patrimonios: {}, series: {}, materiais: {} })
   );
 
-  // ConfiguraÃ§Ãµes
+  // Configurações
   const [config, setConfig] = useState(storageService.loadConfig);
   
   // Feedback e Alertas Ativos
@@ -61,15 +60,15 @@ export const InventoryProvider = ({ children }) => {
   const [duplicateAlert, setDuplicateAlert] = useState(null);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [editingItem, setEditingItem] = useState(null);
-  const [screenFlash, setScreenFlash] = useState({ active: false, warning: false });
+  const [screenFlash, setScreenFlash] = useState({ active: false, type: 'success' });
 
-  // Hook de Ã¡udio
-  const { playBeep, playWarning } = useAudio(config.soundEnabled);
+  // Hook de áudio com suporte a bipe duplo
+  const { playBeep, playDoubleBeep, playWarning } = useAudio(config.soundEnabled);
 
   // Itens do modo atual
   const currentItems = mode === 'aparelhos' ? itemsAparelhos : itemsMateriais;
 
-  // Efeito para salvar estado localmente
+  // Salvar no storage local
   useEffect(() => {
     storageService.save(keys.ACTIVE_MODE, mode);
   }, [mode, keys]);
@@ -95,14 +94,10 @@ export const InventoryProvider = ({ children }) => {
   }, [systemStock, keys]);
 
   useEffect(() => {
-    storageService.save('inventario_2_materiais_catalog', materiaisCatalog);
-  }, [materiaisCatalog]);
-
-  useEffect(() => {
     storageService.saveConfig(config);
   }, [config]);
 
-  // Monitorar conexÃ£o de internet
+  // Monitorar conexão
   useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true);
@@ -120,13 +115,12 @@ export const InventoryProvider = ({ children }) => {
     };
   }, []);
 
-  // Buscar dados da planilha na inicializaÃ§Ã£o
+  // Buscar dados da planilha na inicialização
   const fetchLiveSheetData = useCallback(async () => {
     if (!config.webhookUrl) return;
     const result = await googleSheetService.fetchSheetData(config.webhookUrl);
     if (!result || result.status !== 'sucesso') return;
 
-    // 1. Processar histÃ³rico de contados
     if (Array.isArray(result.data)) {
       setScannedHistory(prev => {
         const next = { ...prev };
@@ -138,7 +132,6 @@ export const InventoryProvider = ({ children }) => {
       });
     }
 
-    // 2. Processar base cadastral ERP - Aparelhos
     if (Array.isArray(result.sistema)) {
       const nextSys = { byPatrimonio: {}, bySerie: {} };
       result.sistema.forEach(sys => {
@@ -148,10 +141,8 @@ export const InventoryProvider = ({ children }) => {
       setSystemStock(nextSys);
     }
 
-    // 3. Processar base cadastral ERP - Materiais (SC PALHOÃ‡A)
     if (Array.isArray(result.materiais) && result.materiais.length > 0) {
       setMateriaisCatalog(result.materiais);
-      // Auto-popular lookupDB com EANs de materiais
       setLookupDB(prev => {
         const next = { ...prev };
         result.materiais.forEach(mat => {
@@ -167,43 +158,120 @@ export const InventoryProvider = ({ children }) => {
     fetchLiveSheetData();
   }, [fetchLiveSheetData]);
 
-  // Disparar Flash na tela
-  const triggerFlash = (isWarning = false) => {
-    setScreenFlash({ active: true, warning: isWarning });
+  // Flash visual na tela: 'success' (verde) | 'warning' (vermelho) | 'info' (azul)
+  const triggerFlash = (type = 'success') => {
+    setScreenFlash({ active: true, type });
     setTimeout(() => {
-      setScreenFlash({ active: false, warning: false });
+      setScreenFlash({ active: false, type: 'success' });
     }, 350);
   };
 
-  // Mostrar Feedback temporÃ¡rio
+  // Feedback toast
   const showFeedbackMessage = (text, type = 'success') => {
     setFeedback({ show: true, text, type });
     if (type === 'success') {
       playBeep();
-      triggerFlash(false);
+      triggerFlash('success');
+    } else if (type === 'info') {
+      playDoubleBeep();
+      triggerFlash('info');
     } else {
       playWarning();
-      triggerFlash(true);
+      triggerFlash('warning');
     }
     setTimeout(() => setFeedback(prev => ({ ...prev, show: false })), 2500);
   };
 
-  // Aprender modelo/descriÃ§Ã£o por EAN ou CÃ³digo
+  // Consultar estatísticas se um material já foi contado
+  const getItemCountedStats = useCallback((codigo, descricao) => {
+    const codClean = String(codigo || '').trim().toLowerCase();
+    const descClean = String(descricao || '').trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+    if (!codClean && !descClean) {
+      return { isCounted: false, totalCounted: 0, countRecords: 0, locations: [], existingItems: [] };
+    }
+
+    const matching = itemsMateriais.filter(item => {
+      const itemCod = String(item.codigo || '').trim().toLowerCase();
+      const itemDesc = String(item.descricao || '').trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      if (codClean && itemCod && codClean === itemCod) return true;
+      if (descClean && itemDesc && descClean === itemDesc) return true;
+      return false;
+    });
+
+    if (matching.length === 0) {
+      return { isCounted: false, totalCounted: 0, countRecords: 0, locations: [], existingItems: [] };
+    }
+
+    const totalCounted = matching.reduce((sum, it) => sum + (Number(it.quantity) || 0), 0);
+    const locations = Array.from(new Set(matching.map(it => it.localizacao).filter(Boolean)));
+
+    return {
+      isCounted: true,
+      totalCounted,
+      countRecords: matching.length,
+      locations,
+      existingItems: matching,
+      firstItem: matching[0]
+    };
+  }, [itemsMateriais]);
+
   const learnEan = (code, desc) => {
     if (!code || !desc) return;
     setLookupDB(prev => ({ ...prev, [code.trim()]: desc.trim() }));
   };
 
-  // Vincular explicitamente um EAN a um material selecionado
   const linkEanToMaterial = (ean, materialName) => {
     if (!ean || !materialName) return;
     learnEan(ean, materialName);
-    showFeedbackMessage(`ðŸ”— CÃ³digo ${ean} vinculado a "${materialName}"!`);
+    showFeedbackMessage(`🔗 Código ${ean} vinculado a "${materialName}"!`, 'info');
   };
 
-  // Adicionar ou Atualizar Item
-  const saveItem = async (itemData) => {
+  // Salvar Item (Suporte a Adicionar, Editar e Somar ao Existente)
+  const saveItem = async (itemData, mergeWithExisting = false) => {
     const isEdit = !!editingItem;
+
+    // Se o usuário escolheu somar com o registro existente de material
+    if (mode === 'materiais' && mergeWithExisting && !isEdit) {
+      const stats = getItemCountedStats(itemData.codigo, itemData.descricao);
+      if (stats.isCounted && stats.firstItem) {
+        const targetId = stats.firstItem.id;
+        const addQty = Number(itemData.quantity) || 1;
+        const newTotal = stats.totalCounted + addQty;
+
+        let updatedItem = null;
+        setItemsMateriais(prev => prev.map(it => {
+          if (it.id === targetId) {
+            updatedItem = {
+              ...it,
+              quantity: (Number(it.quantity) || 0) + addQty,
+              synced: false,
+              timestamp: new Date().toLocaleString('pt-BR'),
+              localizacao: itemData.localizacao ? `${it.localizacao ? it.localizacao + ' / ' : ''}${itemData.localizacao}` : it.localizacao,
+              obs: itemData.obs ? `${it.obs ? it.obs + ' | ' : ''}${itemData.obs}` : it.obs
+            };
+            return updatedItem;
+          }
+          return it;
+        }));
+
+        setEditingItem(null);
+        setDuplicateAlert(null);
+        showFeedbackMessage(`➕ Somado! Total acumulado: ${newTotal} ${itemData.unidade || 'UN'}`, 'info');
+
+        if (config.webhookUrl && navigator.onLine && updatedItem) {
+          try {
+            await googleSheetService.syncItem(config.webhookUrl, updatedItem, true);
+            setItemsMateriais(prev => prev.map(i => i.id === updatedItem.id ? { ...i, synced: true } : i));
+          } catch (e) {
+            console.warn('Sync offline:', e);
+          }
+        }
+        return;
+      }
+    }
+
+    // Registro normal / novo
     const newItem = {
       id: isEdit ? editingItem.id : Date.now().toString(),
       timestamp: isEdit ? editingItem.timestamp : new Date().toLocaleString('pt-BR'),
@@ -212,7 +280,6 @@ export const InventoryProvider = ({ children }) => {
       ...itemData
     };
 
-    // Atualizar no histÃ³rico
     if (newItem.patrimonio) {
       setScannedHistory(prev => ({
         ...prev,
@@ -242,9 +309,8 @@ export const InventoryProvider = ({ children }) => {
 
     setEditingItem(null);
     setDuplicateAlert(null);
-    showFeedbackMessage(isEdit ? 'Item atualizado!' : 'Item adicionado Ã  lista!');
+    showFeedbackMessage(isEdit ? 'Item atualizado!' : 'Item adicionado ao estoque!');
 
-    // Tentar sincronizar em nuvem
     if (config.webhookUrl && navigator.onLine) {
       try {
         await googleSheetService.syncItem(config.webhookUrl, newItem, isEdit);
@@ -260,7 +326,6 @@ export const InventoryProvider = ({ children }) => {
     }
   };
 
-  // Sincronizar todos os itens pendentes
   const syncPending = async () => {
     if (!config.webhookUrl || !navigator.onLine) return;
     const allPending = currentItems.filter(i => !i.synced);
@@ -280,7 +345,6 @@ export const InventoryProvider = ({ children }) => {
     }
   };
 
-  // Remover Item
   const removeItem = (id) => {
     if (mode === 'aparelhos') {
       setItemsAparelhos(prev => prev.filter(i => i.id !== id));
@@ -290,7 +354,6 @@ export const InventoryProvider = ({ children }) => {
     if (editingItem && editingItem.id === id) setEditingItem(null);
   };
 
-  // Alterar Quantidade
   const updateQuantity = (id, delta) => {
     const updateFn = prev => prev.map(item => {
       if (item.id === id) {
@@ -304,9 +367,8 @@ export const InventoryProvider = ({ children }) => {
     else setItemsMateriais(updateFn);
   };
 
-  // Limpar lista atual
   const clearCurrentList = () => {
-    if (window.confirm(`Tem certeza que deseja apagar os dados do inventÃ¡rio de ${mode === 'aparelhos' ? 'Aparelhos' : 'Materiais'}?`)) {
+    if (window.confirm(`Tem certeza que deseja apagar os dados do inventário de ${mode === 'aparelhos' ? 'Aparelhos' : 'Materiais'}?`)) {
       if (mode === 'aparelhos') setItemsAparelhos([]);
       else setItemsMateriais([]);
       setEditingItem(null);
@@ -340,9 +402,11 @@ export const InventoryProvider = ({ children }) => {
       syncPending,
       showFeedbackMessage,
       playBeep,
+      playDoubleBeep,
       playWarning,
       fetchLiveSheetData,
-      linkEanToMaterial
+      linkEanToMaterial,
+      getItemCountedStats
     }}>
       {children}
     </InventoryContext.Provider>
