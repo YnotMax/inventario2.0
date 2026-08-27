@@ -20,11 +20,11 @@ export const InventoryProvider = ({ children }) => {
   // Estado de Modo: 'aparelhos' | 'materiais'
   const [mode, setMode] = useState(() => storageService.load(keys.ACTIVE_MODE, 'aparelhos'));
   
-  // Itens contados por modo (Inicializados do storage local com fallback array vazio)
+  // Itens contados por modo (Inicializados do storage local com fallback seguro)
   const [itemsAparelhos, setItemsAparelhos] = useState(() => storageService.load(keys.ITEMS_APARELHOS, []));
   const [itemsMateriais, setItemsMateriais] = useState(() => storageService.load(keys.ITEMS_MATERIAIS, []));
   
-  // Catálogo EAN / Descrição (Apenas itens aprendidos customizados salvos no localStorage para não estourar cota)
+  // Catálogo EAN / Descrição (Apenas itens aprendidos salvos localmente)
   const [lookupDB, setLookupDB] = useState(() => {
     const saved = storageService.load(keys.EAN_LOOKUP, {});
     return { ...INITIAL_CATALOG, ...saved };
@@ -35,7 +35,7 @@ export const InventoryProvider = ({ children }) => {
     storageService.load(keys.SYSTEM_STOCK, { byPatrimonio: {}, bySerie: {} })
   );
 
-  // Base do Sistema ERP - Catálogo de Materiais (11.921 itens limpos e atualizados em memória)
+  // Base do Sistema ERP - Catálogo de Materiais (11.921 itens limpos na memória RAM)
   const [materiaisCatalog, setMateriaisCatalog] = useState(() => {
     return Array.isArray(initialMateriaisCatalog) ? initialMateriaisCatalog : [];
   });
@@ -48,14 +48,14 @@ export const InventoryProvider = ({ children }) => {
   // Configurações
   const [config, setConfig] = useState(storageService.loadConfig);
   
-  // Feedback e Alertas Ativos
+  // Feedback e Alertas
   const [feedback, setFeedback] = useState({ show: false, text: '', type: 'success' });
   const [duplicateAlert, setDuplicateAlert] = useState(null);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [editingItem, setEditingItem] = useState(null);
   const [screenFlash, setScreenFlash] = useState({ active: false, type: 'success' });
 
-  // Hook de áudio com suporte a bipe duplo
+  // Hook de áudio
   const { playBeep, playDoubleBeep, playWarning } = useAudio(config.soundEnabled);
 
   // Itens do modo atual
@@ -173,7 +173,7 @@ export const InventoryProvider = ({ children }) => {
     fetchLiveSheetData();
   }, [fetchLiveSheetData]);
 
-  // Flash visual na tela: 'success' (verde) | 'warning' (vermelho) | 'info' (azul)
+  // Flash visual na tela
   const triggerFlash = (type = 'success') => {
     setScreenFlash({ active: true, type });
     setTimeout(() => {
@@ -197,9 +197,10 @@ export const InventoryProvider = ({ children }) => {
     setTimeout(() => setFeedback(prev => ({ ...prev, show: false })), 2500);
   };
 
-  // Consultar estatísticas se um material já foi contado
+  // Consultar estatísticas se um material já foi contado (COMPARAÇÃO INTELIGENTE)
   const getItemCountedStats = useCallback((codigo, descricao) => {
     const codClean = String(codigo || '').trim().toLowerCase();
+    const codNoZeros = codClean.replace(/^0+/, '');
     const descClean = String(descricao || '').trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
     if (!codClean && !descClean) {
@@ -209,9 +210,23 @@ export const InventoryProvider = ({ children }) => {
     const currentMats = itemsMateriais || [];
     const matching = currentMats.filter(item => {
       const itemCod = String(item?.codigo || '').trim().toLowerCase();
+      const itemCodNoZeros = itemCod.replace(/^0+/, '');
       const itemDesc = String(item?.descricao || '').trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-      if (codClean && itemCod && codClean === itemCod) return true;
-      if (descClean && itemDesc && descClean === itemDesc) return true;
+
+      // 1. Match por Código (com e sem zeros à esquerda: ex 001140 == 1140)
+      if (codClean && itemCod) {
+        if (codClean === itemCod) return true;
+        if (codNoZeros && itemCodNoZeros && codNoZeros === itemCodNoZeros) return true;
+      }
+
+      // 2. Match por Descrição (exata ou normalizada)
+      if (descClean && itemDesc) {
+        if (descClean === itemDesc) return true;
+        if (descClean.length > 5 && itemDesc.length > 5) {
+          if (descClean.includes(itemDesc) || itemDesc.includes(descClean)) return true;
+        }
+      }
+
       return false;
     });
 

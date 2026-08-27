@@ -1,11 +1,26 @@
 import React, { useState } from 'react';
 import { useInventory } from '../context/InventoryContext';
 
+// Formatador elegante de data/hora
+const formatDateTime = (ts) => {
+  if (!ts) return '';
+  if (typeof ts === 'string' && (ts.includes('GMT') || ts.includes('T') || ts.includes('-'))) {
+    const d = new Date(ts);
+    if (!isNaN(d.getTime())) {
+      return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' ' +
+             d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    }
+  }
+  return String(ts);
+};
+
 export const ItemsList = ({ onEditItem }) => {
   const { mode, items, removeItem, updateQuantity } = useInventory();
   const [searchTerm, setSearchTerm] = useState('');
 
-  const filteredItems = items.filter(item => {
+  const currentItems = items || [];
+
+  const filteredItems = currentItems.filter(item => {
     const term = searchTerm.toLowerCase().trim();
     if (!term) return true;
     return (
@@ -19,7 +34,7 @@ export const ItemsList = ({ onEditItem }) => {
     );
   });
 
-  const totalQuantity = items.reduce((acc, curr) => acc + (Number(curr.quantity) || 1), 0);
+  const totalQuantity = currentItems.reduce((acc, curr) => acc + (Number(curr.quantity) || 1), 0);
 
   return (
     <div className="list-section">
@@ -27,32 +42,53 @@ export const ItemsList = ({ onEditItem }) => {
         <div>
           <h2>{mode === 'aparelhos' ? 'Aparelhos Contados' : 'Materiais Contados'}</h2>
           <span className="list-subtitle">
-            <strong>{items.length}</strong> produtos registrados (<strong>{totalQuantity}</strong> total)
+            <strong>{currentItems.length}</strong> {currentItems.length === 1 ? 'item registrado' : 'itens registrados'} (<strong>{totalQuantity}</strong> total físico)
           </span>
         </div>
       </div>
 
-      <input 
-        type="text" 
-        className="search-input" 
-        placeholder="Buscar código, modelo ou observação..." 
-        value={searchTerm}
-        onChange={e => setSearchTerm(e.target.value)}
-      />
+      <div className="search-box">
+        <i className="fa-solid fa-magnifying-glass search-icon"></i>
+        <input 
+          type="text" 
+          className="search-input" 
+          placeholder={`Filtrar ${mode === 'aparelhos' ? 'patrimônio, modelo, série...' : 'código, nome, localização...'}`} 
+          value={searchTerm}
+          onChange={e => setSearchTerm(e.target.value)}
+        />
+        {searchTerm && (
+          <button 
+            type="button" 
+            className="search-clear-btn" 
+            onClick={() => setSearchTerm('')}
+            title="Limpar busca"
+          >
+            <i className="fa-solid fa-xmark"></i>
+          </button>
+        )}
+      </div>
 
       {filteredItems.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '2rem 1rem', color: 'var(--text-light)', fontStyle: 'italic', fontSize: '0.85rem' }}>
-          {searchTerm ? 'Nenhum item corresponde à busca.' : 'Nenhum código escaneado ainda. Aponte a câmera para começar!'}
+        <div className="empty-state">
+          <i className="fa-solid fa-clipboard-list" style={{ fontSize: '2.5rem', color: '#94a3b8', marginBottom: '0.5rem' }}></i>
+          <p style={{ margin: 0, fontWeight: 600 }}>
+            {searchTerm ? 'Nenhum item corresponde à sua busca.' : 'Nenhum item escaneado ainda.'}
+          </p>
+          <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
+            {searchTerm ? 'Tente buscar por outro termo.' : 'Aponte a câmera ou use o formulário acima para registrar.'}
+          </span>
         </div>
       ) : (
         <ul className="items-list">
-          {filteredItems.map(item => (
-            <li key={item.id} className="item-row">
-              {/* Nuvem de sincronização */}
-              <i 
-                className={`sync-icon fa-solid ${item.synced ? 'fa-cloud-check synced' : 'fa-cloud-arrow-up pending'}`}
-                title={item.synced ? 'Sincronizado na Planilha' : 'Pendente de envio'}
-              ></i>
+          {filteredItems.map((item, idx) => (
+            <li key={item.id || idx} className="item-row">
+              {/* Nuvem de sincronização com tooltip */}
+              <div className="sync-badge-container">
+                <i 
+                  className={`sync-icon fa-solid ${item.synced ? 'fa-cloud-check synced' : 'fa-cloud-arrow-up pending'}`}
+                  title={item.synced ? 'Sincronizado no Google Sheets' : 'Pendente de sincronização'}
+                ></i>
+              </div>
 
               <div className="item-info">
                 {/* Linhas específicas por modo */}
@@ -60,80 +96,104 @@ export const ItemsList = ({ onEditItem }) => {
                   <>
                     {item.patrimonio && (
                       <div className="item-code">
-                        <i className="fa-solid fa-tag" style={{ width: 16 }}></i> {item.patrimonio}
+                        <i className="fa-solid fa-tag"></i>
+                        <span>{item.patrimonio}</span>
                       </div>
                     )}
                     {item.modelo && (
                       <div className="item-meta">
-                        <strong style={{ color: 'var(--text-light)' }}>Mod:</strong> {item.modelo}
+                        <span className="meta-label">Modelo:</span>
+                        <strong className="meta-value">{item.modelo}</strong>
                       </div>
                     )}
                     {item.serie && (
                       <div className="item-meta">
-                        <strong style={{ color: 'var(--text-light)' }}>SN:</strong> {item.serie}
+                        <span className="meta-label">Série:</span>
+                        <span className="meta-value font-mono">{item.serie}</span>
                       </div>
                     )}
                     {item.ean && (
-                      <div className="item-meta" style={{ color: 'var(--primary-dark)' }}>
-                        <i className="fa-solid fa-barcode"></i> {item.ean}
+                      <div className="item-meta">
+                        <i className="fa-solid fa-barcode"></i>
+                        <span className="meta-value font-mono">{item.ean}</span>
                       </div>
                     )}
                   </>
                 ) : (
                   <>
                     {item.descricao && (
-                      <div className="item-code" style={{ fontSize: '0.92rem' }}>
-                        {item.descricao}
+                      <div className="item-code">
+                        <span>{item.descricao}</span>
                       </div>
                     )}
-                    {item.codigo && (
-                      <div className="item-meta">
-                        <i className="fa-solid fa-barcode"></i> {item.codigo}
-                      </div>
-                    )}
-                    {item.localizacao && (
-                      <div className="item-meta" style={{ color: '#0369a1' }}>
-                        <i className="fa-solid fa-location-dot"></i> {item.localizacao}
-                      </div>
-                    )}
-                    {item.unidade && (
-                      <div className="item-meta">
-                        <strong style={{ color: 'var(--text-light)' }}>Un:</strong> {item.unidade}
-                      </div>
-                    )}
+                    <div className="item-tags-row">
+                      {item.codigo && (
+                        <span className="item-badge-code">
+                          <i className="fa-solid fa-barcode"></i> {item.codigo}
+                        </span>
+                      )}
+                      {item.unidade && (
+                        <span className="item-badge-unit">
+                          {item.unidade}
+                        </span>
+                      )}
+                      {item.localizacao && (
+                        <span className="item-badge-loc">
+                          <i className="fa-solid fa-location-dot"></i> {item.localizacao}
+                        </span>
+                      )}
+                    </div>
                   </>
                 )}
 
                 {item.obs && (
-                  <div style={{ fontSize: '0.78rem', color: 'var(--text-light)', borderTop: '1px dashed var(--border-color)', paddingTop: '0.3rem', marginTop: '0.2rem' }}>
-                    <i className="fa-regular fa-comment"></i> {item.obs}
+                  <div className="item-obs">
+                    <i className="fa-regular fa-comment"></i>
+                    <span>{item.obs}</span>
                   </div>
                 )}
 
-                <div className="item-time">{item.timestamp}</div>
+                <div className="item-time">
+                  <i className="fa-regular fa-clock"></i> {formatDateTime(item.timestamp)}
+                </div>
               </div>
 
+              {/* Controles de Quantidade e Ações */}
               <div className="item-controls">
                 <div className="qty-stepper">
-                  <button className="qty-btn" onClick={() => updateQuantity(item.id, -1)}>-</button>
+                  <button 
+                    type="button" 
+                    className="qty-btn" 
+                    onClick={() => updateQuantity(item.id, -1)}
+                    title="Diminuir quantidade"
+                  >
+                    -
+                  </button>
                   <span className="qty-val">{item.quantity || 1}</span>
-                  <button className="qty-btn" onClick={() => updateQuantity(item.id, 1)}>+</button>
+                  <button 
+                    type="button" 
+                    className="qty-btn" 
+                    onClick={() => updateQuantity(item.id, 1)}
+                    title="Aumentar quantidade"
+                  >
+                    +
+                  </button>
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+                <div className="item-actions-group">
                   <button 
-                    className="btn-action-icon" 
+                    type="button"
+                    className="btn-action-icon edit" 
                     onClick={() => onEditItem(item)} 
-                    title="Editar"
-                    style={{ width: '1.8rem', height: '1.8rem' }}
+                    title="Editar item"
                   >
                     <i className="fa-solid fa-pen"></i>
                   </button>
                   <button 
+                    type="button"
                     className="btn-action-icon danger" 
                     onClick={() => removeItem(item.id)} 
-                    title="Remover"
-                    style={{ width: '1.8rem', height: '1.8rem' }}
+                    title="Remover item"
                   >
                     <i className="fa-solid fa-trash"></i>
                   </button>

@@ -34,7 +34,7 @@ export const FormAparelhos = ({ scannedData, onResetScanned }) => {
       if (scannedData.serie) setSerie(scannedData.serie);
       if (scannedData.ean) {
         setEan(scannedData.ean);
-        if (lookupDB[scannedData.ean]) {
+        if (lookupDB && lookupDB[scannedData.ean]) {
           setModelo(lookupDB[scannedData.ean]);
           setHasAutoFill(true);
         }
@@ -47,7 +47,7 @@ export const FormAparelhos = ({ scannedData, onResetScanned }) => {
   // Efeito ao digitar EAN
   const handleEanChange = (val) => {
     setEan(val);
-    if (val && lookupDB[val.trim()]) {
+    if (val && lookupDB && lookupDB[val.trim()]) {
       setModelo(lookupDB[val.trim()]);
       setHasAutoFill(true);
     }
@@ -85,14 +85,15 @@ export const FormAparelhos = ({ scannedData, onResetScanned }) => {
   };
 
   return (
-    <form className="item-card" onSubmit={handleSubmit}>
-      <div className="card-header">
+    <form className="form-card" onSubmit={handleSubmit}>
+      <div className="form-header">
         <h3>
-          <i className="fa-solid fa-tv"></i>
-          <span>{editingItem ? 'Editando Aparelho' : 'Aparelho Atual'}</span>
+          <i className="fa-solid fa-desktop"></i>
+          <span>{editingItem ? 'Editando Aparelho' : 'Aparelho / Máquina'}</span>
         </h3>
-        <button type="button" className="btn-text" onClick={handleClear}>
-          <i className="fa-solid fa-rotate-left"></i> Limpar
+        <button type="button" className="btn-clear-header" onClick={handleClear} title="Limpar formulário">
+          <i className="fa-solid fa-rotate-left"></i>
+          <span>Limpar</span>
         </button>
       </div>
 
@@ -109,30 +110,30 @@ export const FormAparelhos = ({ scannedData, onResetScanned }) => {
         />
       </div>
 
-      <div className="form-row">
-        <div className="form-group" style={{ flex: 1 }}>
-          <label htmlFor="input-modelo">
-            Modelo {hasAutoFill && <span className="badge-auto"><i className="fa-solid fa-sparkles"></i> Auto</span>}
-          </label>
-          <input 
-            id="input-modelo"
-            type="text" 
-            placeholder="Ex: CRC08CBANA" 
-            value={modelo} 
-            onChange={e => setModelo(e.target.value)}
-          />
-        </div>
+      <div className="form-group">
+        <label htmlFor="input-modelo">
+          <i className="fa-solid fa-box"></i> Modelo {hasAutoFill && <span className="badge-auto"><i className="fa-solid fa-sparkles"></i> Auto</span>}
+        </label>
+        <input 
+          id="input-modelo"
+          type="text" 
+          placeholder="Ex: CRC08CBANA ou Elgin Eco Plus" 
+          value={modelo} 
+          onChange={e => setModelo(e.target.value)}
+        />
+      </div>
 
-        <div className="form-group" style={{ flex: 1 }}>
-          <label htmlFor="input-serie">Nº Série</label>
-          <input 
-            id="input-serie"
-            type="text" 
-            placeholder="Ex: ARC112500168435" 
-            value={serie} 
-            onChange={e => setSerie(e.target.value)}
-          />
-        </div>
+      <div className="form-group">
+        <label htmlFor="input-serie">
+          <i className="fa-solid fa-fingerprint"></i> Nº Série
+        </label>
+        <input 
+          id="input-serie"
+          type="text" 
+          placeholder="Ex: ARC112500168435" 
+          value={serie} 
+          onChange={e => setSerie(e.target.value)}
+        />
       </div>
 
       <div className="form-group">
@@ -161,23 +162,20 @@ export const FormAparelhos = ({ scannedData, onResetScanned }) => {
         />
       </div>
 
-      <div className="form-row">
-        <div className="form-group" style={{ flex: 1 }}>
-          <label htmlFor="input-qty">Qtd</label>
-          <input 
-            id="input-qty"
-            type="number" 
-            min="1" 
-            value={quantity} 
-            onChange={e => setQuantity(e.target.value)}
-          />
-        </div>
-
-        <button type="submit" className="btn-save-main" style={{ flex: 2 }}>
-          <i className={`fa-solid ${editingItem ? 'fa-check' : 'fa-plus'}`}></i>
-          <span>{editingItem ? 'Salvar Alterações' : 'Adicionar à Lista'}</span>
-        </button>
+      <div className="form-group" style={{ display: 'none' }}>
+        <label htmlFor="input-qty">Qtd</label>
+        <input 
+          id="input-qty"
+          type="number" 
+          value={quantity} 
+          readOnly 
+        />
       </div>
+
+      <button type="submit" className="btn-save-main">
+        <i className={`fa-solid ${editingItem ? 'fa-check' : 'fa-plus'}`}></i>
+        <span>{editingItem ? 'Salvar Alterações' : 'Adicionar à Lista de Contagem'}</span>
+      </button>
     </form>
   );
 };

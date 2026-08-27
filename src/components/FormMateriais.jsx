@@ -57,7 +57,7 @@ export const FormMateriais = ({ scannedData, onResetScanned }) => {
         setLastScannedEan(code);
         
         // Se já existe no catálogo
-        if (lookupDB[code]) {
+        if (lookupDB && lookupDB[code]) {
           const descFound = lookupDB[code];
           setDescricao(descFound);
           setHasAutoFill(true);
@@ -127,7 +127,7 @@ export const FormMateriais = ({ scannedData, onResetScanned }) => {
   // Salvar (com opção de somar ao existente ou criar novo)
   const handleSave = (mergeWithExisting = false) => {
     if (!codigo && !descricao) {
-      alert('Por favor, preencha o código ou descrição do material.');
+      alert('Por favor, preencha o código ou a descrição do material.');
       return;
     }
 
@@ -146,14 +146,15 @@ export const FormMateriais = ({ scannedData, onResetScanned }) => {
   };
 
   return (
-    <form className="item-card" onSubmit={(e) => { e.preventDefault(); handleSave(countedStats.isCounted && !editingItem); }}>
-      <div className="card-header">
+    <form className="form-card" onSubmit={(e) => { e.preventDefault(); handleSave(countedStats.isCounted && !editingItem); }}>
+      <div className="form-header">
         <h3>
           <i className="fa-solid fa-boxes-stacked"></i>
           <span>{editingItem ? 'Editando Material' : 'Material / Insumo'}</span>
         </h3>
-        <button type="button" className="btn-text" onClick={handleClear}>
-          <i className="fa-solid fa-rotate-left"></i> Limpar
+        <button type="button" className="btn-clear-header" onClick={handleClear} title="Limpar formulário">
+          <i className="fa-solid fa-rotate-left"></i>
+          <span>Limpar</span>
         </button>
       </div>
 
@@ -165,64 +166,49 @@ export const FormMateriais = ({ scannedData, onResetScanned }) => {
 
       {/* 📦 CARD DE ALERTA INFORMATIVO: ITEM JÁ CONTADO */}
       {countedStats.isCounted && !editingItem && (
-        <div style={{
-          backgroundColor: '#eff6ff',
-          border: '1.5px solid #60a5fa',
-          borderRadius: 'var(--radius-md)',
-          padding: '0.65rem 0.85rem',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '0.35rem',
-          boxShadow: '0 2px 8px rgba(59, 130, 246, 0.12)'
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ color: '#1d4ed8', fontWeight: 700, fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-              <i className="fa-solid fa-circle-check"></i> Item Já Contado Anteriormente!
+        <div className="alert-box-counted">
+          <div className="alert-box-top">
+            <span className="alert-box-title">
+              <i className="fa-solid fa-circle-check"></i> Item Já Registrado no Físico!
             </span>
-            <span style={{
-              backgroundColor: '#2563eb',
-              color: 'white',
-              fontSize: '0.75rem',
-              fontWeight: 700,
-              padding: '2px 8px',
-              borderRadius: 'var(--radius-full)'
-            }}>
-              Total: {countedStats.totalCounted} {unidade}
+            <span className="alert-box-badge">
+              Total Físico: {countedStats.totalCounted} {unidade}
             </span>
           </div>
 
-          <div style={{ fontSize: '0.75rem', color: '#1e40af', display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
+          <div className="alert-box-details">
             {countedStats.locations.length > 0 && (
-              <span><strong>Localizações registradas:</strong> {countedStats.locations.join(' | ')}</span>
+              <span><strong>Locais já bipados:</strong> {countedStats.locations.join(' | ')}</span>
             )}
             {systemBalance !== null && (
               <span>
-                <strong>ERP:</strong> {systemBalance} {unidade} (Diferença: {countedStats.totalCounted - systemBalance > 0 ? `+${countedStats.totalCounted - systemBalance}` : countedStats.totalCounted - systemBalance} {unidade})
+                <strong>Saldo ERP:</strong> {systemBalance} {unidade} (Diferença: {countedStats.totalCounted - systemBalance > 0 ? `+${countedStats.totalCounted - systemBalance}` : countedStats.totalCounted - systemBalance} {unidade})
               </span>
             )}
+          </div>
+
+          <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.35rem' }}>
+            <button 
+              type="button" 
+              className="btn-skip-next"
+              onClick={handleClear}
+              title="Limpar e passar para o próximo item"
+            >
+              <i className="fa-solid fa-forward-step"></i>
+              <span>Passar para o Próximo Item</span>
+            </button>
           </div>
         </div>
       )}
 
       {/* Cartão de Destaque com Fornecedor e Saldo Teórico */}
       {(fornecedorInfo || systemBalance !== null) && !countedStats.isCounted && (
-        <div style={{
-          backgroundColor: 'var(--secondary-color)',
-          border: '1px solid #bae6fd',
-          borderRadius: 'var(--radius-md)',
-          padding: '0.55rem 0.75rem',
-          fontSize: '0.78rem',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: '0.4rem'
-        }}>
+        <div className="info-badge-card">
           {fornecedorInfo && (
             <span><strong>Fornecedor:</strong> {fornecedorInfo}</span>
           )}
           {systemBalance !== null && (
-            <span style={{ color: '#0369a1', fontWeight: 700 }}>
+            <span className="balance-highlight">
               <i className="fa-solid fa-calculator"></i> Saldo no Sistema: {systemBalance} {unidade}
             </span>
           )}
@@ -230,34 +216,12 @@ export const FormMateriais = ({ scannedData, onResetScanned }) => {
       )}
 
       {/* Botão para vincular EAN caso tenha lido um código avulso */}
-      {lastScannedEan && descricao && !lookupDB[lastScannedEan] && (
-        <div style={{
-          backgroundColor: '#fef3c7',
-          border: '1px dashed #f59e0b',
-          padding: '0.5rem 0.75rem',
-          borderRadius: 'var(--radius-md)',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          gap: '0.5rem'
-        }}>
-          <span style={{ fontSize: '0.75rem', color: '#92400e' }}>
+      {lastScannedEan && descricao && (!lookupDB || !lookupDB[lastScannedEan]) && (
+        <div className="link-ean-card">
+          <span>
             <i className="fa-solid fa-barcode"></i> EAN lido: <strong>{lastScannedEan}</strong>
           </span>
-          <button
-            type="button"
-            onClick={handleLinkEan}
-            style={{
-              backgroundColor: '#f59e0b',
-              color: 'white',
-              border: 'none',
-              borderRadius: 'var(--radius-full)',
-              padding: '0.25rem 0.6rem',
-              fontSize: '0.72rem',
-              fontWeight: 700,
-              cursor: 'pointer'
-            }}
-          >
+          <button type="button" onClick={handleLinkEan} className="btn-link-ean">
             <i className="fa-solid fa-link"></i> Vincular a este produto
           </button>
         </div>
@@ -296,7 +260,7 @@ export const FormMateriais = ({ scannedData, onResetScanned }) => {
             id="select-mat-unidade"
             value={unidade} 
             onChange={e => setUnidade(e.target.value)}
-            style={{ fontWeight: 700, color: 'var(--primary-dark)' }}
+            style={{ fontWeight: 700, color: '#0369a1' }}
           >
             {UNIDADES.map(u => (
               <option key={u} value={u}>{u}</option>
@@ -328,7 +292,7 @@ export const FormMateriais = ({ scannedData, onResetScanned }) => {
             id="input-mat-qty"
             type="number" 
             min="1" 
-            style={{ flex: 1, fontSize: '1.1rem', fontWeight: 700, textAlign: 'center' }}
+            style={{ flex: 1, fontSize: '1.15rem', fontWeight: 800, textAlign: 'center' }}
             value={quantity} 
             onChange={e => setQuantity(e.target.value)}
           />
@@ -359,7 +323,7 @@ export const FormMateriais = ({ scannedData, onResetScanned }) => {
 
       {/* BOTÕES INTELIGENTES DE SALVAR */}
       {countedStats.isCounted && !editingItem ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginTop: '0.25rem' }}>
           <button 
             type="button" 
             className="btn-save-main" 
@@ -372,23 +336,11 @@ export const FormMateriais = ({ scannedData, onResetScanned }) => {
 
           <button 
             type="button" 
+            className="btn-save-secondary"
             onClick={() => handleSave(false)}
-            style={{
-              backgroundColor: 'transparent',
-              border: '1px solid var(--border-color)',
-              color: 'var(--text-color)',
-              padding: '0.65rem',
-              borderRadius: 'var(--radius-md)',
-              fontSize: '0.82rem',
-              fontWeight: 600,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '0.4rem'
-            }}
           >
-            <i className="fa-solid fa-file-circle-plus"></i> Salvar como Novo Registro Separado
+            <i className="fa-solid fa-file-circle-plus"></i>
+            <span>Salvar como Novo Registro Separado</span>
           </button>
         </div>
       ) : (

@@ -6,24 +6,19 @@ export const NavigationTabs = ({ activeTab, onTabChange }) => {
     mode, 
     materiaisCatalog = [], 
     systemStock = {}, 
-    itemsMateriais = [], 
-    allMateriais = [],
     itemsAparelhos = [],
-    allAparelhos = []
+    allAparelhos = [],
+    getItemCountedStats
   } = useInventory();
 
-  const matsCounted = itemsMateriais.length ? itemsMateriais : allMateriais;
   const apCounted = itemsAparelhos.length ? itemsAparelhos : allAparelhos;
 
-  // Calcular total de pendências com saldo > 0
+  // Calcular total de pendências reais (não contadas com saldo > 0 no ERP)
   let pendingCount = 0;
   if (mode === 'materiais') {
-    const countedSet = new Set(
-      (matsCounted || []).map(it => (it?.codigo || it?.descricao || '').trim().toLowerCase())
-    );
     pendingCount = (materiaisCatalog || []).filter(mat => {
-      const isCounted = countedSet.has((mat?.codigo || mat?.nome || '').trim().toLowerCase());
-      return !isCounted && (Number(mat?.quantidade) || 0) > 0;
+      const stats = getItemCountedStats(mat?.codigo, mat?.nome);
+      return !stats.isCounted && (Number(mat?.quantidade) || 0) > 0;
     }).length;
   } else {
     const countedPatrimonios = new Set(

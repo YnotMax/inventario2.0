@@ -1,11 +1,16 @@
 import React, { useState, useMemo } from 'react';
 import { useInventory } from '../context/InventoryContext';
 
-// Card Individual de Material Pendente
-const PendingMaterialCard = ({ material, onRegister }) => {
-  const defaultQty = (Number(material?.quantidade) || 0) > 0 ? Number(material?.quantidade) : 1;
+// Card Individual de Material (Pendente ou Já Contado)
+const MaterialAuditCard = ({ material, stats, onRegister, onAddMore }) => {
+  const isCounted = stats.isCounted;
+  const sysQty = Number(material?.quantidade) || 0;
+  const countedQty = stats.totalCounted || 0;
+  const diff = countedQty - sysQty;
+
+  const defaultQty = !isCounted ? (sysQty > 0 ? sysQty : 1) : 1;
   const [qty, setQty] = useState(defaultQty);
-  const [loc, setLoc] = useState('');
+  const [loc, setLoc] = useState(stats.locations && stats.locations.length ? stats.locations.join(' / ') : '');
 
   const handleAdjustQty = (delta) => {
     setQty(prev => Math.max(1, (Number(prev) || 0) + delta));
@@ -18,18 +23,30 @@ const PendingMaterialCard = ({ material, onRegister }) => {
       unidade: material?.unidade || 'UN',
       localizacao: loc,
       quantity: Number(qty) || 1,
-      saldoSistema: material?.quantidade || 0,
+      saldoSistema: sysQty,
       fornecedor: material?.fornecedor || ''
-    });
+    }, isCounted);
   };
 
   return (
-    <div className="pending-card">
+    <div className={`pending-card ${isCounted ? 'counted-card' : ''}`}>
       <div className="pending-card-header">
         <div style={{ flex: 1 }}>
-          <h4 style={{ margin: 0, fontSize: '0.92rem', color: 'var(--text-color)' }}>
-            {material?.nome}
-          </h4>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+            <h4 style={{ margin: 0, fontSize: '0.92rem', color: 'var(--text-color)' }}>
+              {material?.nome}
+            </h4>
+            {isCounted ? (
+              <span className="badge-counted-success">
+                <i className="fa-solid fa-circle-check"></i> JÁ CONTADO ({countedQty} {material?.unidade || 'UN'})
+              </span>
+            ) : (
+              <span className="badge-pending-warn">
+                <i className="fa-solid fa-clock"></i> PENDENTE
+              </span>
+            )}
+          </div>
+
           <div style={{ display: 'flex', gap: '0.6rem', fontSize: '0.75rem', color: 'var(--text-light)', marginTop: '0.25rem', flexWrap: 'wrap' }}>
             {material?.codigo && <span><strong>Cód:</strong> {material.codigo}</span>}
             {material?.fornecedor && <span><strong>Forn:</strong> {material.fornecedor}</span>}
@@ -43,16 +60,28 @@ const PendingMaterialCard = ({ material, onRegister }) => {
       </div>
 
       <div className="pending-card-body">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ fontSize: '0.8rem', color: '#0369a1', fontWeight: 700 }}>
-            <i className="fa-solid fa-calculator"></i> Saldo no ERP: {material?.quantidade || 0} {material?.unidade || 'UN'}
-          </span>
-          <span style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>
-            Qtd Física Encontrada:
-          </span>
+        {/* Painel Informativo de Saldos */}
+        <div className="balance-info-grid">
+          <div className="balance-info-col">
+            <span className="balance-label">Saldo ERP:</span>
+            <strong className="balance-val-erp">{sysQty} {material?.unidade || 'UN'}</strong>
+          </div>
+          <div className="balance-info-col">
+            <span className="balance-label">Físico Registrado:</span>
+            <strong className={`balance-val-phys ${isCounted ? 'counted' : 'zero'}`}>
+              {countedQty} {material?.unidade || 'UN'}
+            </strong>
+          </div>
+          <div className="balance-info-col">
+            <span className="balance-label">Diferença:</span>
+            <strong className={`balance-val-diff ${diff === 0 ? 'equal' : (diff > 0 ? 'pos' : 'neg')}`}>
+              {diff > 0 ? `+${diff}` : diff} {material?.unidade || 'UN'}
+            </strong>
+          </div>
         </div>
 
-        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+        {/* Formulário de Registro / Soma */}
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginTop: '0.35rem' }}>
           <div className="qty-stepper" style={{ flex: 1 }}>
             <button type="button" onClick={() => handleAdjustQty(-1)}>-</button>
             <input 
@@ -66,7 +95,7 @@ const PendingMaterialCard = ({ material, onRegister }) => {
 
           <input 
             type="text" 
-            placeholder="Local / Prat." 
+            placeholder="Local / Prateleira" 
             value={loc} 
             onChange={(e) => setLoc(e.target.value)}
             style={{ flex: 1.2, padding: '0.45rem 0.6rem', fontSize: '0.82rem' }}
@@ -75,11 +104,11 @@ const PendingMaterialCard = ({ material, onRegister }) => {
 
         <button 
           type="button" 
-          className="btn-confirm-pending"
+          className={`btn-confirm-pending ${isCounted ? 'btn-add-more' : ''}`}
           onClick={handleConfirm}
         >
-          <i className="fa-solid fa-check"></i>
-          <span>Registrar Contagem ({qty} {material?.unidade || 'UN'})</span>
+          <i className={`fa-solid ${isCounted ? 'fa-plus' : 'fa-check'}`}></i>
+          <span>{isCounted ? `Somar Mais (+${qty} ${material?.unidade || 'UN'})` : `Registrar Contagem (${qty} ${material?.unidade || 'UN'})`}</span>
         </button>
       </div>
     </div>
@@ -141,39 +170,42 @@ export const PendingItemsList = () => {
     mode, 
     materiaisCatalog = [], 
     systemStock = {}, 
-    itemsMateriais = [], 
-    allMateriais = [],
     itemsAparelhos = [], 
     allAparelhos = [],
+    getItemCountedStats,
     saveItem, 
     showFeedbackMessage 
   } = useInventory();
   
-  const [filterWithStockOnly, setFilterWithStockOnly] = useState(true);
+  // Filtros: 'pendentes' (falta contar com saldo > 0) | 'contados' (já contados) | 'todos' (catálogo completo)
+  const [activeFilter, setActiveFilter] = useState('pendentes');
   const [searchTerm, setSearchTerm] = useState('');
 
-  const currentMats = itemsMateriais.length ? itemsMateriais : allMateriais;
   const currentAps = itemsAparelhos.length ? itemsAparelhos : allAparelhos;
 
-  // 1. Filtrar Materiais Pendentes
-  const pendingMateriais = useMemo(() => {
+  // 1. Filtrar Materiais
+  const filteredMateriais = useMemo(() => {
     if (mode !== 'materiais') return [];
-
-    const countedKeys = new Set(
-      (currentMats || []).map(it => (it?.codigo || it?.descricao || '').trim().toLowerCase())
-    );
 
     const term = searchTerm.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
-    return (materiaisCatalog || []).filter(mat => {
-      const isCounted = countedKeys.has((mat?.codigo || mat?.nome || '').trim().toLowerCase());
-      if (isCounted) return false;
+    return (materiaisCatalog || []).map(mat => {
+      const stats = getItemCountedStats(mat?.codigo, mat?.nome);
+      return { material: mat, stats };
+    }).filter(({ material, stats }) => {
+      const hasStock = (Number(material?.quantidade) || 0) > 0;
+      
+      // Aplicar filtro de aba
+      if (activeFilter === 'pendentes') {
+        if (stats.isCounted) return false;
+        if (!hasStock) return false;
+      } else if (activeFilter === 'contados') {
+        if (!stats.isCounted) return false;
+      }
 
-      const hasStock = (Number(mat?.quantidade) || 0) > 0;
-      if (filterWithStockOnly && !hasStock) return false;
-
+      // Aplicar busca de texto
       if (term) {
-        const fullText = `${mat?.nome || ''} ${mat?.codigo || ''} ${mat?.fornecedor || ''} ${mat?.ean || ''}`
+        const fullText = `${material?.nome || ''} ${material?.codigo || ''} ${material?.fornecedor || ''} ${material?.ean || ''}`
           .toLowerCase()
           .normalize("NFD")
           .replace(/[\u0300-\u036f]/g, "");
@@ -182,7 +214,22 @@ export const PendingItemsList = () => {
 
       return true;
     });
-  }, [mode, materiaisCatalog, currentMats, filterWithStockOnly, searchTerm]);
+  }, [mode, materiaisCatalog, getItemCountedStats, activeFilter, searchTerm]);
+
+  // Contadores para os botões de filtro
+  const counts = useMemo(() => {
+    if (mode !== 'materiais') return { pendentes: 0, contados: 0, todos: 0 };
+    let pendentes = 0;
+    let contados = 0;
+
+    (materiaisCatalog || []).forEach(mat => {
+      const stats = getItemCountedStats(mat?.codigo, mat?.nome);
+      if (stats.isCounted) contados++;
+      else if ((Number(mat?.quantidade) || 0) > 0) pendentes++;
+    });
+
+    return { pendentes, contados, todos: materiaisCatalog.length };
+  }, [mode, materiaisCatalog, getItemCountedStats]);
 
   // 2. Filtrar Aparelhos Pendentes
   const pendingAparelhos = useMemo(() => {
@@ -207,9 +254,9 @@ export const PendingItemsList = () => {
     });
   }, [mode, systemStock, currentAps, searchTerm]);
 
-  const handleRegisterMaterial = (itemData) => {
-    saveItem(itemData);
-    showFeedbackMessage(`✅ ${itemData.descricao} registrado!`);
+  const handleRegisterMaterial = (itemData, merge = false) => {
+    saveItem(itemData, merge);
+    showFeedbackMessage(`✅ ${itemData.descricao} registrado no físico!`);
   };
 
   const handleRegisterAparelho = (itemData) => {
@@ -222,12 +269,12 @@ export const PendingItemsList = () => {
       <div className="pending-header-banner">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h3>
-            <i className="fa-solid fa-hourglass-half"></i>
-            <span>Itens Pendentes ({mode === 'materiais' ? pendingMateriais.length : pendingAparelhos.length})</span>
+            <i className="fa-solid fa-clipboard-check"></i>
+            <span>Painel de Auditoria e Pendências</span>
           </h3>
         </div>
         <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-light)' }}>
-          Itens cadastrados no sistema que ainda não foram registrados na contagem física.
+          Compare o saldo cadastrado no sistema ERP com o que já foi conferido fisicamente.
         </p>
       </div>
 
@@ -236,7 +283,7 @@ export const PendingItemsList = () => {
         <div style={{ position: 'relative', width: '100%' }}>
           <input 
             type="text" 
-            placeholder={`Filtrar pendências de ${mode === 'materiais' ? 'materiais' : 'aparelhos'}...`}
+            placeholder={`Filtrar ${mode === 'materiais' ? 'nome, código ou fornecedor' : 'patrimônio ou modelo'}...`}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             style={{ paddingLeft: '2.2rem' }}
@@ -248,17 +295,25 @@ export const PendingItemsList = () => {
           <div className="filter-pill-selector">
             <button 
               type="button" 
-              className={`pill-btn ${filterWithStockOnly ? 'active' : ''}`}
-              onClick={() => setFilterWithStockOnly(true)}
+              className={`pill-btn ${activeFilter === 'pendentes' ? 'active' : ''}`}
+              onClick={() => setActiveFilter('pendentes')}
             >
-              <i className="fa-solid fa-boxes-stacked"></i> Apenas com Saldo no ERP ({(materiaisCatalog || []).filter(m => (Number(m?.quantidade) || 0) > 0).length})
+              <i className="fa-solid fa-hourglass-half"></i> Falta Contar ({counts.pendentes})
             </button>
             <button 
               type="button" 
-              className={`pill-btn ${!filterWithStockOnly ? 'active' : ''}`}
-              onClick={() => setFilterWithStockOnly(false)}
+              className={`pill-btn ${activeFilter === 'contados' ? 'active' : ''}`}
+              onClick={() => setActiveFilter('contados')}
+              style={{ borderColor: activeFilter === 'contados' ? '#16a34a' : '', backgroundColor: activeFilter === 'contados' ? '#16a34a' : '' }}
             >
-              <i className="fa-solid fa-list-ul"></i> Todos Não Contados
+              <i className="fa-solid fa-circle-check"></i> Já Contados ({counts.contados})
+            </button>
+            <button 
+              type="button" 
+              className={`pill-btn ${activeFilter === 'todos' ? 'active' : ''}`}
+              onClick={() => setActiveFilter('todos')}
+            >
+              <i className="fa-solid fa-list-ul"></i> Todos ({counts.todos})
             </button>
           </div>
         )}
@@ -267,19 +322,20 @@ export const PendingItemsList = () => {
       {/* Lista de Cards */}
       <div className="pending-cards-grid">
         {mode === 'materiais' ? (
-          pendingMateriais.length > 0 ? (
-            pendingMateriais.slice(0, 100).map((mat, idx) => (
-              <PendingMaterialCard 
-                key={mat?.codigo || mat?.ean || idx} 
-                material={mat} 
+          filteredMateriais.length > 0 ? (
+            filteredMateriais.slice(0, 100).map(({ material, stats }, idx) => (
+              <MaterialAuditCard 
+                key={material?.codigo || material?.ean || idx} 
+                material={material} 
+                stats={stats}
                 onRegister={handleRegisterMaterial}
               />
             ))
           ) : (
             <div className="empty-pending-state">
               <i className="fa-solid fa-clipboard-check" style={{ fontSize: '2.5rem', color: '#16a34a' }}></i>
-              <p><strong>Nenhuma pendência encontrada!</strong></p>
-              <span>Todos os itens deste filtro já foram contabilizados no estoque físico.</span>
+              <p><strong>Nenhum item encontrado neste filtro!</strong></p>
+              <span>{activeFilter === 'pendentes' ? 'Parabéns! Todos os itens com saldo no ERP já foram conferidos.' : 'Tente buscar por outro termo ou alterar o filtro acima.'}</span>
             </div>
           )
         ) : (

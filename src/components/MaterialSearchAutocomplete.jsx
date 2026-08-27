@@ -2,7 +2,7 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useInventory } from '../context/InventoryContext';
 
 export const MaterialSearchAutocomplete = ({ onSelectMaterial, initialValue = '' }) => {
-  const { materiaisCatalog, getItemCountedStats } = useInventory();
+  const { materiaisCatalog = [], getItemCountedStats } = useInventory();
   const [searchTerm, setSearchTerm] = useState(initialValue);
   const [isOpen, setIsOpen] = useState(false);
   const wrapperRef = useRef(null);
@@ -29,11 +29,11 @@ export const MaterialSearchAutocomplete = ({ onSelectMaterial, initialValue = ''
 
     const words = term.split(/\s+/);
 
-    return materiaisCatalog.filter(mat => {
-      const nomeNorm = String(mat.nome || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-      const codNorm = String(mat.codigo || '').toLowerCase();
-      const eanNorm = String(mat.ean || '').toLowerCase();
-      const fornNorm = String(mat.fornecedor || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    return (materiaisCatalog || []).filter(mat => {
+      const nomeNorm = String(mat?.nome || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      const codNorm = String(mat?.codigo || '').toLowerCase();
+      const eanNorm = String(mat?.ean || '').toLowerCase();
+      const fornNorm = String(mat?.fornecedor || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
       
       const fullText = `${nomeNorm} ${codNorm} ${eanNorm} ${fornNorm}`;
 
@@ -53,22 +53,23 @@ export const MaterialSearchAutocomplete = ({ onSelectMaterial, initialValue = ''
   };
 
   return (
-    <div ref={wrapperRef} style={{ position: 'relative', width: '100%' }}>
+    <div ref={wrapperRef} className="autocomplete-wrapper">
       <div className="form-group">
-        <label htmlFor="material-autocomplete-input" style={{ display: 'flex', justifyContent: 'space-between' }}>
+        <label htmlFor="material-autocomplete-input" className="autocomplete-label">
           <span><i className="fa-solid fa-magnifying-glass"></i> Busca Rápida no Catálogo ERP</span>
           {materiaisCatalog.length > 0 && (
-            <span style={{ fontSize: '0.72rem', color: 'var(--text-light)' }}>
-              {materiaisCatalog.length} itens cadastrados
+            <span className="catalog-count-tag">
+              {materiaisCatalog.length.toLocaleString('pt-BR')} itens cadastrados
             </span>
           )}
         </label>
         
-        <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+        <div className="autocomplete-input-box">
           <input
             id="material-autocomplete-input"
             type="text"
-            placeholder="Digite nome (ex: sensor, tubo, luva), fornecedor ou código..."
+            className="autocomplete-input"
+            placeholder="Digite nome (ex: silicone, fita, pincel), cód. ou fornecedor..."
             value={searchTerm}
             onChange={(e) => {
               setSearchTerm(e.target.value);
@@ -77,21 +78,13 @@ export const MaterialSearchAutocomplete = ({ onSelectMaterial, initialValue = ''
             onFocus={() => {
               if (searchTerm.trim().length >= 2) setIsOpen(true);
             }}
-            style={{ paddingRight: '2rem' }}
           />
           {searchTerm && (
             <button
               type="button"
+              className="autocomplete-clear-btn"
               onClick={handleClear}
-              style={{
-                position: 'absolute',
-                right: '0.6rem',
-                background: 'none',
-                border: 'none',
-                color: 'var(--text-light)',
-                cursor: 'pointer',
-                fontSize: '0.85rem'
-              }}
+              title="Limpar busca"
             >
               <i className="fa-solid fa-circle-xmark"></i>
             </button>
@@ -101,91 +94,45 @@ export const MaterialSearchAutocomplete = ({ onSelectMaterial, initialValue = ''
 
       {/* Lista Suspensa de Sugestões */}
       {isOpen && suggestions.length > 0 && (
-        <ul style={{
-          position: 'absolute',
-          top: '100%',
-          left: 0,
-          right: 0,
-          zIndex: 200,
-          backgroundColor: 'var(--surface-color)',
-          border: '1px solid var(--primary-light)',
-          borderRadius: 'var(--radius-md)',
-          boxShadow: 'var(--shadow-lg)',
-          maxHeight: '280px',
-          overflowY: 'auto',
-          listStyle: 'none',
-          marginTop: '4px',
-          padding: '4px'
-        }}>
+        <ul className="autocomplete-dropdown">
           {suggestions.map((mat, idx) => {
-            const countedStats = getItemCountedStats(mat.codigo, mat.nome);
+            const countedStats = getItemCountedStats(mat?.codigo, mat?.nome);
 
             return (
               <li
                 key={idx}
                 onClick={() => handleSelect(mat)}
-                style={{
-                  padding: '0.65rem 0.8rem',
-                  borderBottom: idx < suggestions.length - 1 ? '1px solid var(--border-color)' : 'none',
-                  cursor: 'pointer',
-                  borderRadius: 'var(--radius-sm)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '0.25rem',
-                  backgroundColor: countedStats.isCounted ? '#f0fdf4' : 'transparent',
-                  borderLeft: countedStats.isCounted ? '3px solid #16a34a' : 'none',
-                  transition: 'background 0.15s ease'
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = countedStats.isCounted ? '#dcfce7' : 'var(--secondary-color)'}
-                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = countedStats.isCounted ? '#f0fdf4' : 'transparent'}
+                className={`autocomplete-dropdown-item ${countedStats.isCounted ? 'is-counted' : ''}`}
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem' }}>
-                  <strong style={{ fontSize: '0.88rem', color: 'var(--text-color)' }}>
+                <div className="dropdown-item-top">
+                  <strong className="dropdown-item-name">
                     {mat.nome}
                   </strong>
-                  <span style={{
-                    backgroundColor: 'var(--primary-color)',
-                    color: 'white',
-                    fontSize: '0.7rem',
-                    fontWeight: 700,
-                    padding: '2px 6px',
-                    borderRadius: 'var(--radius-full)',
-                    whiteSpace: 'nowrap'
-                  }}>
+                  <span className="dropdown-item-unit">
                     {mat.unidade || 'UN'}
                   </span>
                 </div>
 
                 {/* Selo de Já Contado em Destaque */}
                 {countedStats.isCounted && (
-                  <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
-                    <span style={{
-                      backgroundColor: '#16a34a',
-                      color: 'white',
-                      fontSize: '0.72rem',
-                      fontWeight: 700,
-                      padding: '2px 7px',
-                      borderRadius: 'var(--radius-full)',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '0.25rem'
-                    }}>
+                  <div className="counted-indicator-row">
+                    <span className="badge-counted-tag">
                       <i className="fa-solid fa-circle-check"></i> Já Contado: {countedStats.totalCounted} {mat.unidade || 'UN'}
                     </span>
                     {countedStats.countRecords > 1 && (
-                      <span style={{ fontSize: '0.7rem', color: '#15803d', fontWeight: 600 }}>
-                        ({countedStats.countRecords} registros)
+                      <span className="counted-records-text">
+                        ({countedStats.countRecords} registros somados)
                       </span>
                     )}
                   </div>
                 )}
 
-                <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.75rem', color: 'var(--text-light)', flexWrap: 'wrap' }}>
+                <div className="dropdown-item-meta">
                   {mat.codigo && <span><strong>Cód:</strong> {mat.codigo}</span>}
                   {mat.fornecedor && <span><strong>Forn:</strong> {mat.fornecedor}</span>}
                   {mat.ean && <span><i className="fa-solid fa-barcode"></i> {mat.ean}</span>}
                   {mat.quantidade !== undefined && mat.quantidade !== null && (
-                    <span style={{ color: '#0369a1', fontWeight: 600 }}>
+                    <span className="erp-stock-highlight">
                       <strong>ERP:</strong> {mat.quantidade} {mat.unidade || 'UN'}
                     </span>
                   )}
@@ -197,23 +144,9 @@ export const MaterialSearchAutocomplete = ({ onSelectMaterial, initialValue = ''
       )}
 
       {isOpen && searchTerm.trim().length >= 2 && suggestions.length === 0 && (
-        <div style={{
-          position: 'absolute',
-          top: '100%',
-          left: 0,
-          right: 0,
-          zIndex: 200,
-          backgroundColor: 'var(--surface-color)',
-          border: '1px solid var(--border-color)',
-          borderRadius: 'var(--radius-md)',
-          boxShadow: 'var(--shadow-md)',
-          padding: '0.8rem',
-          textAlign: 'center',
-          fontSize: '0.8rem',
-          color: 'var(--text-light)',
-          marginTop: '4px'
-        }}>
-          Nenhum material encontrado com "{searchTerm}". Você pode digitar os dados manualmente abaixo.
+        <div className="autocomplete-empty-tip">
+          <i className="fa-solid fa-info-circle"></i>
+          <span>Nenhum material encontrado com "{searchTerm}". Você pode cadastrar manualmente nos campos abaixo.</span>
         </div>
       )}
     </div>
