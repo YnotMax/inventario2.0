@@ -3,7 +3,7 @@ import { useInventory } from '../context/InventoryContext';
 
 // Card Individual de Material Pendente
 const PendingMaterialCard = ({ material, onRegister }) => {
-  const defaultQty = (Number(material.quantidade) || 0) > 0 ? Number(material.quantidade) : 1;
+  const defaultQty = (Number(material?.quantidade) || 0) > 0 ? Number(material?.quantidade) : 1;
   const [qty, setQty] = useState(defaultQty);
   const [loc, setLoc] = useState('');
 
@@ -13,13 +13,13 @@ const PendingMaterialCard = ({ material, onRegister }) => {
 
   const handleConfirm = () => {
     onRegister({
-      codigo: material.codigo || material.ean || '',
-      descricao: material.nome,
-      unidade: material.unidade || 'UN',
+      codigo: material?.codigo || material?.ean || '',
+      descricao: material?.nome || '',
+      unidade: material?.unidade || 'UN',
       localizacao: loc,
       quantity: Number(qty) || 1,
-      saldoSistema: material.quantidade,
-      fornecedor: material.fornecedor || ''
+      saldoSistema: material?.quantidade || 0,
+      fornecedor: material?.fornecedor || ''
     });
   };
 
@@ -28,24 +28,24 @@ const PendingMaterialCard = ({ material, onRegister }) => {
       <div className="pending-card-header">
         <div style={{ flex: 1 }}>
           <h4 style={{ margin: 0, fontSize: '0.92rem', color: 'var(--text-color)' }}>
-            {material.nome}
+            {material?.nome}
           </h4>
           <div style={{ display: 'flex', gap: '0.6rem', fontSize: '0.75rem', color: 'var(--text-light)', marginTop: '0.25rem', flexWrap: 'wrap' }}>
-            {material.codigo && <span><strong>Cód:</strong> {material.codigo}</span>}
-            {material.fornecedor && <span><strong>Forn:</strong> {material.fornecedor}</span>}
-            {material.ean && <span><i className="fa-solid fa-barcode"></i> {material.ean}</span>}
+            {material?.codigo && <span><strong>Cód:</strong> {material.codigo}</span>}
+            {material?.fornecedor && <span><strong>Forn:</strong> {material.fornecedor}</span>}
+            {material?.ean && <span><i className="fa-solid fa-barcode"></i> {material.ean}</span>}
           </div>
         </div>
 
         <span className="badge-unit">
-          {material.unidade || 'UN'}
+          {material?.unidade || 'UN'}
         </span>
       </div>
 
       <div className="pending-card-body">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={{ fontSize: '0.8rem', color: '#0369a1', fontWeight: 700 }}>
-            <i className="fa-solid fa-calculator"></i> Saldo no ERP: {material.quantidade} {material.unidade || 'UN'}
+            <i className="fa-solid fa-calculator"></i> Saldo no ERP: {material?.quantidade || 0} {material?.unidade || 'UN'}
           </span>
           <span style={{ fontSize: '0.75rem', color: 'var(--text-light)' }}>
             Qtd Física Encontrada:
@@ -79,7 +79,7 @@ const PendingMaterialCard = ({ material, onRegister }) => {
           onClick={handleConfirm}
         >
           <i className="fa-solid fa-check"></i>
-          <span>Registrar Contagem ({qty} {material.unidade || 'UN'})</span>
+          <span>Registrar Contagem ({qty} {material?.unidade || 'UN'})</span>
         </button>
       </div>
     </div>
@@ -92,9 +92,9 @@ const PendingAparelhoCard = ({ item, onRegister }) => {
 
   const handleConfirm = () => {
     onRegister({
-      patrimonio: item.etiqueta,
-      modelo: item.material,
-      serie: item.serie,
+      patrimonio: item?.etiqueta || '',
+      modelo: item?.material || '',
+      serie: item?.serie || '',
       quantity: 1,
       obs
     });
@@ -105,11 +105,11 @@ const PendingAparelhoCard = ({ item, onRegister }) => {
       <div className="pending-card-header">
         <div>
           <h4 style={{ margin: 0, fontSize: '0.92rem', color: 'var(--text-color)' }}>
-            {item.material || 'Aparelho / Máquina'}
+            {item?.material || 'Aparelho / Máquina'}
           </h4>
           <div style={{ display: 'flex', gap: '0.6rem', fontSize: '0.75rem', color: 'var(--text-light)', marginTop: '0.25rem' }}>
-            <span><strong>Patrimônio:</strong> {item.etiqueta}</span>
-            {item.serie && <span><strong>Série:</strong> {item.serie}</span>}
+            <span><strong>Patrimônio:</strong> {item?.etiqueta}</span>
+            {item?.serie && <span><strong>Série:</strong> {item?.serie}</span>}
           </div>
         </div>
       </div>
@@ -137,30 +137,43 @@ const PendingAparelhoCard = ({ item, onRegister }) => {
 };
 
 export const PendingItemsList = () => {
-  const { mode, materiaisCatalog, systemStock, itemsMateriais, itemsAparelhos, saveItem, showFeedbackMessage } = useInventory();
+  const { 
+    mode, 
+    materiaisCatalog = [], 
+    systemStock = {}, 
+    itemsMateriais = [], 
+    allMateriais = [],
+    itemsAparelhos = [], 
+    allAparelhos = [],
+    saveItem, 
+    showFeedbackMessage 
+  } = useInventory();
   
   const [filterWithStockOnly, setFilterWithStockOnly] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+
+  const currentMats = itemsMateriais.length ? itemsMateriais : allMateriais;
+  const currentAps = itemsAparelhos.length ? itemsAparelhos : allAparelhos;
 
   // 1. Filtrar Materiais Pendentes
   const pendingMateriais = useMemo(() => {
     if (mode !== 'materiais') return [];
 
     const countedKeys = new Set(
-      itemsMateriais.map(it => (it.codigo || it.descricao || '').trim().toLowerCase())
+      (currentMats || []).map(it => (it?.codigo || it?.descricao || '').trim().toLowerCase())
     );
 
     const term = searchTerm.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
-    return materiaisCatalog.filter(mat => {
-      const isCounted = countedKeys.has((mat.codigo || mat.nome || '').trim().toLowerCase());
+    return (materiaisCatalog || []).filter(mat => {
+      const isCounted = countedKeys.has((mat?.codigo || mat?.nome || '').trim().toLowerCase());
       if (isCounted) return false;
 
-      const hasStock = (Number(mat.quantidade) || 0) > 0;
+      const hasStock = (Number(mat?.quantidade) || 0) > 0;
       if (filterWithStockOnly && !hasStock) return false;
 
       if (term) {
-        const fullText = `${mat.nome || ''} ${mat.codigo || ''} ${mat.fornecedor || ''} ${mat.ean || ''}`
+        const fullText = `${mat?.nome || ''} ${mat?.codigo || ''} ${mat?.fornecedor || ''} ${mat?.ean || ''}`
           .toLowerCase()
           .normalize("NFD")
           .replace(/[\u0300-\u036f]/g, "");
@@ -169,30 +182,30 @@ export const PendingItemsList = () => {
 
       return true;
     });
-  }, [mode, materiaisCatalog, itemsMateriais, filterWithStockOnly, searchTerm]);
+  }, [mode, materiaisCatalog, currentMats, filterWithStockOnly, searchTerm]);
 
   // 2. Filtrar Aparelhos Pendentes
   const pendingAparelhos = useMemo(() => {
     if (mode !== 'aparelhos' || !systemStock || !systemStock.byPatrimonio) return [];
 
     const countedPatrimonios = new Set(
-      itemsAparelhos.map(it => (it.patrimonio || '').toUpperCase().trim())
+      (currentAps || []).map(it => (it?.patrimonio || '').toUpperCase().trim())
     );
 
     const term = searchTerm.trim().toLowerCase();
 
     return Object.values(systemStock.byPatrimonio).filter(sys => {
-      const isCounted = countedPatrimonios.has((sys.etiqueta || '').toUpperCase().trim());
+      const isCounted = countedPatrimonios.has((sys?.etiqueta || '').toUpperCase().trim());
       if (isCounted) return false;
 
       if (term) {
-        const fullText = `${sys.etiqueta || ''} ${sys.material || ''} ${sys.serie || ''}`.toLowerCase();
+        const fullText = `${sys?.etiqueta || ''} ${sys?.material || ''} ${sys?.serie || ''}`.toLowerCase();
         if (!fullText.includes(term)) return false;
       }
 
       return true;
     });
-  }, [mode, systemStock, itemsAparelhos, searchTerm]);
+  }, [mode, systemStock, currentAps, searchTerm]);
 
   const handleRegisterMaterial = (itemData) => {
     saveItem(itemData);
@@ -238,7 +251,7 @@ export const PendingItemsList = () => {
               className={`pill-btn ${filterWithStockOnly ? 'active' : ''}`}
               onClick={() => setFilterWithStockOnly(true)}
             >
-              <i className="fa-solid fa-boxes-stacked"></i> Apenas com Saldo no ERP ({materiaisCatalog.filter(m => (Number(m.quantidade) || 0) > 0).length})
+              <i className="fa-solid fa-boxes-stacked"></i> Apenas com Saldo no ERP ({(materiaisCatalog || []).filter(m => (Number(m?.quantidade) || 0) > 0).length})
             </button>
             <button 
               type="button" 
@@ -257,7 +270,7 @@ export const PendingItemsList = () => {
           pendingMateriais.length > 0 ? (
             pendingMateriais.slice(0, 100).map((mat, idx) => (
               <PendingMaterialCard 
-                key={mat.codigo || mat.ean || idx} 
+                key={mat?.codigo || mat?.ean || idx} 
                 material={mat} 
                 onRegister={handleRegisterMaterial}
               />
@@ -273,7 +286,7 @@ export const PendingItemsList = () => {
           pendingAparelhos.length > 0 ? (
             pendingAparelhos.slice(0, 100).map((ap, idx) => (
               <PendingAparelhoCard 
-                key={ap.etiqueta || idx} 
+                key={ap?.etiqueta || idx} 
                 item={ap} 
                 onRegister={handleRegisterAparelho}
               />

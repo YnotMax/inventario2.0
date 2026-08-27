@@ -2,21 +2,32 @@ import React from 'react';
 import { useInventory } from '../context/InventoryContext';
 
 export const NavigationTabs = ({ activeTab, onTabChange }) => {
-  const { mode, materiaisCatalog, systemStock, itemsMateriais, itemsAparelhos } = useInventory();
+  const { 
+    mode, 
+    materiaisCatalog = [], 
+    systemStock = {}, 
+    itemsMateriais = [], 
+    allMateriais = [],
+    itemsAparelhos = [],
+    allAparelhos = []
+  } = useInventory();
+
+  const matsCounted = itemsMateriais.length ? itemsMateriais : allMateriais;
+  const apCounted = itemsAparelhos.length ? itemsAparelhos : allAparelhos;
 
   // Calcular total de pendências com saldo > 0
   let pendingCount = 0;
   if (mode === 'materiais') {
     const countedSet = new Set(
-      itemsMateriais.map(it => (it.codigo || it.descricao || '').trim().toLowerCase())
+      (matsCounted || []).map(it => (it?.codigo || it?.descricao || '').trim().toLowerCase())
     );
-    pendingCount = materiaisCatalog.filter(mat => {
-      const isCounted = countedSet.has((mat.codigo || mat.nome || '').trim().toLowerCase());
-      return !isCounted && (Number(mat.quantidade) || 0) > 0;
+    pendingCount = (materiaisCatalog || []).filter(mat => {
+      const isCounted = countedSet.has((mat?.codigo || mat?.nome || '').trim().toLowerCase());
+      return !isCounted && (Number(mat?.quantidade) || 0) > 0;
     }).length;
   } else {
     const countedPatrimonios = new Set(
-      itemsAparelhos.map(it => (it.patrimonio || '').toUpperCase().trim())
+      (apCounted || []).map(it => (it?.patrimonio || '').toUpperCase().trim())
     );
     if (systemStock && systemStock.byPatrimonio) {
       pendingCount = Object.keys(systemStock.byPatrimonio).filter(

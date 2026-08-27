@@ -20,7 +20,7 @@ export const InventoryProvider = ({ children }) => {
   // Estado de Modo: 'aparelhos' | 'materiais'
   const [mode, setMode] = useState(() => storageService.load(keys.ACTIVE_MODE, 'aparelhos'));
   
-  // Itens contados por modo (Inicializados do storage local)
+  // Itens contados por modo (Inicializados do storage local com fallback array vazio)
   const [itemsAparelhos, setItemsAparelhos] = useState(() => storageService.load(keys.ITEMS_APARELHOS, []));
   const [itemsMateriais, setItemsMateriais] = useState(() => storageService.load(keys.ITEMS_MATERIAIS, []));
   
@@ -59,7 +59,7 @@ export const InventoryProvider = ({ children }) => {
   const { playBeep, playDoubleBeep, playWarning } = useAudio(config.soundEnabled);
 
   // Itens do modo atual
-  const currentItems = mode === 'aparelhos' ? itemsAparelhos : itemsMateriais;
+  const currentItems = mode === 'aparelhos' ? (itemsAparelhos || []) : (itemsMateriais || []);
 
   // Salvar no storage local com segurança
   useEffect(() => {
@@ -67,23 +67,23 @@ export const InventoryProvider = ({ children }) => {
   }, [mode, keys]);
 
   useEffect(() => {
-    storageService.save(keys.ITEMS_APARELHOS, itemsAparelhos);
+    storageService.save(keys.ITEMS_APARELHOS, itemsAparelhos || []);
   }, [itemsAparelhos, keys]);
 
   useEffect(() => {
-    storageService.save(keys.ITEMS_MATERIAIS, itemsMateriais);
+    storageService.save(keys.ITEMS_MATERIAIS, itemsMateriais || []);
   }, [itemsMateriais, keys]);
 
   useEffect(() => {
-    storageService.save(keys.EAN_LOOKUP, lookupDB);
+    storageService.save(keys.EAN_LOOKUP, lookupDB || {});
   }, [lookupDB, keys]);
 
   useEffect(() => {
-    storageService.save(keys.HISTORY, scannedHistory);
+    storageService.save(keys.HISTORY, scannedHistory || {});
   }, [scannedHistory, keys]);
 
   useEffect(() => {
-    storageService.save(keys.SYSTEM_STOCK, systemStock);
+    storageService.save(keys.SYSTEM_STOCK, systemStock || {});
   }, [systemStock, keys]);
 
   useEffect(() => {
@@ -118,7 +118,9 @@ export const InventoryProvider = ({ children }) => {
       // 1. Processar histórico de contados aparelhos
       if (Array.isArray(result.data)) {
         setScannedHistory(prev => {
-          const next = { ...prev };
+          const next = { ...(prev || {}) };
+          if (!next.patrimonios) next.patrimonios = {};
+          if (!next.series) next.series = {};
           result.data.forEach(it => {
             if (it.patrimonio) next.patrimonios[it.patrimonio.toUpperCase().trim()] = true;
             if (it.serie) next.series[it.serie.toUpperCase().trim()] = true;
@@ -127,17 +129,18 @@ export const InventoryProvider = ({ children }) => {
         });
       }
 
-      // 2. Processar materiais já contados na planilha física (Puxa os itens para a tela do celular)
+      // 2. Processar materiais já contados na planilha física
       if (Array.isArray(result.fisicoMateriais) && result.fisicoMateriais.length > 0) {
         setItemsMateriais(prev => {
-          if (prev.length === 0) return result.fisicoMateriais;
+          const prevItems = prev || [];
+          if (prevItems.length === 0) return result.fisicoMateriais;
           
           const mapByCodOrDesc = {};
           result.fisicoMateriais.forEach(item => {
             const key = (item.codigo || item.descricao || '').trim().toLowerCase();
             if (key) mapByCodOrDesc[key] = item;
           });
-          prev.forEach(item => {
+          prevItems.forEach(item => {
             const key = (item.codigo || item.descricao || '').trim().toLowerCase();
             if (key && !mapByCodOrDesc[key]) {
               mapByCodOrDesc[key] = item;
@@ -203,9 +206,10 @@ export const InventoryProvider = ({ children }) => {
       return { isCounted: false, totalCounted: 0, countRecords: 0, locations: [], existingItems: [] };
     }
 
-    const matching = itemsMateriais.filter(item => {
-      const itemCod = String(item.codigo || '').trim().toLowerCase();
-      const itemDesc = String(item.descricao || '').trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const currentMats = itemsMateriais || [];
+    const matching = currentMats.filter(item => {
+      const itemCod = String(item?.codigo || '').trim().toLowerCase();
+      const itemDesc = String(item?.descricao || '').trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
       if (codClean && itemCod && codClean === itemCod) return true;
       if (descClean && itemDesc && descClean === itemDesc) return true;
       return false;
@@ -215,8 +219,8 @@ export const InventoryProvider = ({ children }) => {
       return { isCounted: false, totalCounted: 0, countRecords: 0, locations: [], existingItems: [] };
     }
 
-    const totalCounted = matching.reduce((sum, it) => sum + (Number(it.quantity) || 0), 0);
-    const locations = Array.from(new Set(matching.map(it => it.localizacao).filter(Boolean)));
+    const totalCounted = matching.reduce((sum, it) => sum + (Number(it?.quantity) || 0), 0);
+    const locations = Array.from(new Set(matching.map(it => it?.localizacao).filter(Boolean)));
 
     return {
       isCounted: true,
@@ -230,7 +234,7 @@ export const InventoryProvider = ({ children }) => {
 
   const learnEan = (code, desc) => {
     if (!code || !desc) return;
-    setLookupDB(prev => ({ ...prev, [code.trim()]: desc.trim() }));
+    setLookupDB(prev => ({ ...(prev || {}), [code.trim()]: desc.trim() }));
   };
 
   const linkEanToMaterial = (ean, materialName) => {
@@ -251,7 +255,7 @@ export const InventoryProvider = ({ children }) => {
         const newTotal = stats.totalCounted + addQty;
 
         let updatedItem = null;
-        setItemsMateriais(prev => prev.map(it => {
+        setItemsMateriais(prev => (prev || []).map(it => {
           if (it.id === targetId) {
             updatedItem = {
               ...it,
@@ -273,7 +277,7 @@ export const InventoryProvider = ({ children }) => {
         if (config.webhookUrl && navigator.onLine && updatedItem) {
           try {
             await googleSheetService.syncItem(config.webhookUrl, updatedItem, true);
-            setItemsMateriais(prev => prev.map(i => i.id === updatedItem.id ? { ...i, synced: true } : i));
+            setItemsMateriais(prev => (prev || []).map(i => i.id === updatedItem.id ? { ...i, synced: true } : i));
           } catch (e) {
             console.warn('Sync offline:', e);
           }
@@ -293,28 +297,30 @@ export const InventoryProvider = ({ children }) => {
 
     if (newItem.patrimonio) {
       setScannedHistory(prev => ({
-        ...prev,
-        patrimonios: { ...prev.patrimonios, [newItem.patrimonio.toUpperCase().trim()]: true }
+        ...(prev || {}),
+        patrimonios: { ...((prev && prev.patrimonios) || {}), [newItem.patrimonio.toUpperCase().trim()]: true }
       }));
     }
     if (newItem.serie) {
       setScannedHistory(prev => ({
-        ...prev,
-        series: { ...prev.series, [newItem.serie.toUpperCase().trim()]: true }
+        ...(prev || {}),
+        series: { ...((prev && prev.series) || {}), [newItem.serie.toUpperCase().trim()]: true }
       }));
     }
 
     if (mode === 'aparelhos') {
       if (newItem.ean && newItem.modelo) learnEan(newItem.ean, newItem.modelo);
       setItemsAparelhos(prev => {
-        if (isEdit) return prev.map(i => i.id === newItem.id ? newItem : i);
-        return [newItem, ...prev];
+        const list = prev || [];
+        if (isEdit) return list.map(i => i.id === newItem.id ? newItem : i);
+        return [newItem, ...list];
       });
     } else {
       if (newItem.codigo && newItem.descricao) learnEan(newItem.codigo, newItem.descricao);
       setItemsMateriais(prev => {
-        if (isEdit) return prev.map(i => i.id === newItem.id ? newItem : i);
-        return [newItem, ...prev];
+        const list = prev || [];
+        if (isEdit) return list.map(i => i.id === newItem.id ? newItem : i);
+        return [newItem, ...list];
       });
     }
 
@@ -327,9 +333,9 @@ export const InventoryProvider = ({ children }) => {
         await googleSheetService.syncItem(config.webhookUrl, newItem, isEdit);
         newItem.synced = true;
         if (mode === 'aparelhos') {
-          setItemsAparelhos(prev => prev.map(i => i.id === newItem.id ? { ...i, synced: true } : i));
+          setItemsAparelhos(prev => (prev || []).map(i => i.id === newItem.id ? { ...i, synced: true } : i));
         } else {
-          setItemsMateriais(prev => prev.map(i => i.id === newItem.id ? { ...i, synced: true } : i));
+          setItemsMateriais(prev => (prev || []).map(i => i.id === newItem.id ? { ...i, synced: true } : i));
         }
       } catch (e) {
         console.warn('Salvo localmente (offline):', e);
@@ -339,16 +345,16 @@ export const InventoryProvider = ({ children }) => {
 
   const syncPending = async () => {
     if (!config.webhookUrl || !navigator.onLine) return;
-    const allPending = currentItems.filter(i => !i.synced);
+    const allPending = (currentItems || []).filter(i => !i.synced);
     if (allPending.length === 0) return;
 
     for (const item of allPending) {
       try {
         await googleSheetService.syncItem(config.webhookUrl, item, false);
         if (mode === 'aparelhos') {
-          setItemsAparelhos(prev => prev.map(i => i.id === item.id ? { ...i, synced: true } : i));
+          setItemsAparelhos(prev => (prev || []).map(i => i.id === item.id ? { ...i, synced: true } : i));
         } else {
-          setItemsMateriais(prev => prev.map(i => i.id === item.id ? { ...i, synced: true } : i));
+          setItemsMateriais(prev => (prev || []).map(i => i.id === item.id ? { ...i, synced: true } : i));
         }
       } catch (e) {
         break;
@@ -358,15 +364,15 @@ export const InventoryProvider = ({ children }) => {
 
   const removeItem = (id) => {
     if (mode === 'aparelhos') {
-      setItemsAparelhos(prev => prev.filter(i => i.id !== id));
+      setItemsAparelhos(prev => (prev || []).filter(i => i.id !== id));
     } else {
-      setItemsMateriais(prev => prev.filter(i => i.id !== id));
+      setItemsMateriais(prev => (prev || []).filter(i => i.id !== id));
     }
     if (editingItem && editingItem.id === id) setEditingItem(null);
   };
 
   const updateQuantity = (id, delta) => {
-    const updateFn = prev => prev.map(item => {
+    const updateFn = prev => (prev || []).map(item => {
       if (item.id === id) {
         const nextQty = Math.max(1, (item.quantity || 1) + delta);
         return { ...item, quantity: nextQty, synced: false };
@@ -390,13 +396,15 @@ export const InventoryProvider = ({ children }) => {
     <InventoryContext.Provider value={{
       mode,
       setMode,
-      items: currentItems,
-      allAparelhos: itemsAparelhos,
-      allMateriais: itemsMateriais,
-      lookupDB,
-      systemStock,
-      materiaisCatalog,
-      scannedHistory,
+      items: currentItems || [],
+      allAparelhos: itemsAparelhos || [],
+      allMateriais: itemsMateriais || [],
+      itemsAparelhos: itemsAparelhos || [],
+      itemsMateriais: itemsMateriais || [],
+      lookupDB: lookupDB || {},
+      systemStock: systemStock || {},
+      materiaisCatalog: materiaisCatalog || [],
+      scannedHistory: scannedHistory || {},
       config,
       setConfig,
       feedback,
