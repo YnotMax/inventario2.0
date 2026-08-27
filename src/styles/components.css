@@ -1009,6 +1009,39 @@ textarea:focus {
   gap: 0.5rem;
 }
 
+.pending-search-form {
+  display: flex;
+  gap: 0.45rem;
+  width: 100%;
+  align-items: center;
+}
+
+.btn-search-trigger {
+  background: linear-gradient(135deg, #0284c7, #0369a1);
+  color: white;
+  border: none;
+  padding: 0.65rem 1rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  box-shadow: 0 2px 6px rgba(2, 132, 199, 0.25);
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.btn-search-trigger:hover {
+  background: linear-gradient(135deg, #0369a1, #075985);
+}
+
+.btn-search-trigger:active {
+  transform: scale(0.97);
+}
+
 .filter-pill-selector {
   display: flex;
   gap: 0.4rem;

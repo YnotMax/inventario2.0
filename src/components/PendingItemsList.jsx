@@ -1,8 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useInventory } from '../context/InventoryContext';
 
 // Card Individual de Material (Pendente ou Já Contado)
-const MaterialAuditCard = ({ material, stats, onRegister, onAddMore }) => {
+const MaterialAuditCard = ({ material, stats, onRegister }) => {
   const isCounted = stats.isCounted;
   const sysQty = Number(material?.quantidade) || 0;
   const countedQty = stats.totalCounted || 0;
@@ -179,11 +179,42 @@ export const PendingItemsList = () => {
   
   // Filtros: 'pendentes' (falta contar com saldo > 0) | 'contados' (já contados) | 'todos' (catálogo completo)
   const [activeFilter, setActiveFilter] = useState('pendentes');
+  
+  // Estado de digitação imediato (nunca trava) e estado de busca com debounce
+  const [inputValue, setInputValue] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const debounceTimerRef = useRef(null);
+
+  // Debounce automático de 300ms
+  useEffect(() => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+    debounceTimerRef.current = setTimeout(() => {
+      setSearchTerm(inputValue);
+    }, 300);
+
+    return () => {
+      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    };
+  }, [inputValue]);
+
+  // Disparo manual instantâneo ao clicar em Buscar ou apertar Enter
+  const handleSearchSubmit = (e) => {
+    if (e) e.preventDefault();
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    setSearchTerm(inputValue);
+  };
+
+  const handleClearSearch = () => {
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    setInputValue('');
+    setSearchTerm('');
+  };
 
   const currentAps = itemsAparelhos.length ? itemsAparelhos : allAparelhos;
 
-  // 1. Filtrar Materiais
+  // 1. Filtrar Materiais (Otimizado e Fluido)
   const filteredMateriais = useMemo(() => {
     if (mode !== 'materiais') return [];
 
@@ -278,46 +309,75 @@ export const PendingItemsList = () => {
         </p>
       </div>
 
-      {/* Filtros e Busca de Pendências */}
-      <div className="pending-filters">
-        <div style={{ position: 'relative', width: '100%' }}>
+      {/* Formulário de Busca Otimizada (Debounce + Tecla Enter + Botão Buscar) */}
+      <form className="pending-search-form" onSubmit={handleSearchSubmit}>
+        <div style={{ position: 'relative', flex: 1, display: 'flex', alignItems: 'center' }}>
           <input 
             type="text" 
-            placeholder={`Filtrar ${mode === 'materiais' ? 'nome, código ou fornecedor' : 'patrimônio ou modelo'}...`}
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={{ paddingLeft: '2.2rem' }}
+            placeholder={`Buscar ${mode === 'materiais' ? 'nome, código ou fornecedor' : 'patrimônio ou modelo'}...`}
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            style={{ paddingLeft: '2.2rem', paddingRight: inputValue ? '2rem' : '0.85rem' }}
           />
-          <i className="fa-solid fa-magnifying-glass" style={{ position: 'absolute', left: '0.8rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-light)', fontSize: '0.85rem' }}></i>
+          <i className="fa-solid fa-magnifying-glass" style={{ position: 'absolute', left: '0.8rem', color: 'var(--text-light)', fontSize: '0.85rem', pointerEvents: 'none' }}></i>
+          
+          {inputValue && (
+            <button 
+              type="button" 
+              onClick={handleClearSearch}
+              style={{
+                position: 'absolute',
+                right: '0.6rem',
+                background: 'none',
+                border: 'none',
+                color: '#94a3b8',
+                cursor: 'pointer',
+                fontSize: '0.95rem',
+                padding: '0.2rem'
+              }}
+              title="Limpar busca"
+            >
+              <i className="fa-solid fa-circle-xmark"></i>
+            </button>
+          )}
         </div>
 
-        {mode === 'materiais' && (
-          <div className="filter-pill-selector">
-            <button 
-              type="button" 
-              className={`pill-btn ${activeFilter === 'pendentes' ? 'active' : ''}`}
-              onClick={() => setActiveFilter('pendentes')}
-            >
-              <i className="fa-solid fa-hourglass-half"></i> Falta Contar ({counts.pendentes})
-            </button>
-            <button 
-              type="button" 
-              className={`pill-btn ${activeFilter === 'contados' ? 'active' : ''}`}
-              onClick={() => setActiveFilter('contados')}
-              style={{ borderColor: activeFilter === 'contados' ? '#16a34a' : '', backgroundColor: activeFilter === 'contados' ? '#16a34a' : '' }}
-            >
-              <i className="fa-solid fa-circle-check"></i> Já Contados ({counts.contados})
-            </button>
-            <button 
-              type="button" 
-              className={`pill-btn ${activeFilter === 'todos' ? 'active' : ''}`}
-              onClick={() => setActiveFilter('todos')}
-            >
-              <i className="fa-solid fa-list-ul"></i> Todos ({counts.todos})
-            </button>
-          </div>
-        )}
-      </div>
+        <button type="submit" className="btn-search-trigger" title="Buscar agora">
+          <i className="fa-solid fa-magnifying-glass"></i>
+          <span>Buscar</span>
+        </button>
+      </form>
+
+      {/* Seletor de Abas de Filtro */}
+      {mode === 'materiais' && (
+        <div className="filter-pill-selector">
+          <button 
+            type="button" 
+            className={`pill-btn ${activeFilter === 'pendentes' ? 'active' : ''}`}
+            onClick={() => setActiveFilter('pendentes')}
+          >
+            <i className="fa-solid fa-hourglass-half"></i> Falta Contar ({counts.pendentes})
+          </button>
+          <button 
+            type="button" 
+            className={`pill-btn ${activeFilter === 'contados' ? 'active' : ''}`}
+            onClick={() => setActiveFilter('contados')}
+            style={{ 
+              borderColor: activeFilter === 'contados' ? '#16a34a' : '', 
+              backgroundColor: activeFilter === 'contados' ? '#16a34a' : '' 
+            }}
+          >
+            <i className="fa-solid fa-circle-check"></i> Já Contados ({counts.contados})
+          </button>
+          <button 
+            type="button" 
+            className={`pill-btn ${activeFilter === 'todos' ? 'active' : ''}`}
+            onClick={() => setActiveFilter('todos')}
+          >
+            <i className="fa-solid fa-list-ul"></i> Todos ({counts.todos})
+          </button>
+        </div>
+      )}
 
       {/* Lista de Cards */}
       <div className="pending-cards-grid">
@@ -334,8 +394,8 @@ export const PendingItemsList = () => {
           ) : (
             <div className="empty-pending-state">
               <i className="fa-solid fa-clipboard-check" style={{ fontSize: '2.5rem', color: '#16a34a' }}></i>
-              <p><strong>Nenhum item encontrado neste filtro!</strong></p>
-              <span>{activeFilter === 'pendentes' ? 'Parabéns! Todos os itens com saldo no ERP já foram conferidos.' : 'Tente buscar por outro termo ou alterar o filtro acima.'}</span>
+              <p><strong>Nenhum item encontrado!</strong></p>
+              <span>{activeFilter === 'pendentes' ? 'Parabéns! Todos os itens com saldo no ERP já foram conferidos.' : 'Tente buscar por outro termo ou altere a aba acima.'}</span>
             </div>
           )
         ) : (
