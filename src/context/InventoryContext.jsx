@@ -406,6 +406,7 @@ export const InventoryProvider = ({ children }) => {
       editingItem,
       setEditingItem,
       screenFlash,
+      triggerFlash,
       saveItem,
       removeItem,
       updateQuantity,
